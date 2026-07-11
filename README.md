@@ -32,20 +32,25 @@ make build
 make test
 ./bin/studypilot version
 ./bin/studypilot init --dry-run
-./bin/studypilot init --dry-run --root /custom/path
+./bin/studypilot init
+./bin/studypilot init --root /custom/path
 ```
 
 The dry-run command prints the deterministic initialization plan and performs
-no filesystem writes. Real initialization is not enabled yet. The default
-future workspace location is `~/Documents/StudyPilot`.
+no filesystem writes. Real initialization creates only the private and public
+vault skeletons. It does not initialize Git repositories or install Obsidian
+plugins. The default workspace location is `~/Documents/StudyPilot`.
+
+Rerunning `init` is safe when existing files are unchanged: matching paths are
+skipped. Conflicting files and directories are reported and never overwritten.
 
 ## Not included
 
-This milestone does not implement real `init`, `doctor`, audio capture, Whisper
+This milestone does not implement `doctor`, audio capture, Whisper
 transcription, SQLite, Git or GitHub automation, publication automation,
 synchronization, a web UI, tray integration, Obsidian plugins, Dataview,
 learning sessions, transcription processing, assessment tracking, or
-knowledge-gap tracking.
+knowledge-gap tracking. No Git repositories or plugins are created by `init`.
 
 See [the architecture](docs/architecture.md) and
 [publication policy](docs/publication-policy.md) for the contracts established

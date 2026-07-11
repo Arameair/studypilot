@@ -84,7 +84,7 @@ func Execute(plan Plan) (ExecutionReport, error) {
 		var err error
 		switch operation.Kind {
 		case OperationCreateDirectory:
-			result, err = executeDirectory(operation)
+			result, err = executeDirectory(operation, filepath.Clean(operation.Path) == filepath.Clean(plan.Root))
 		case OperationCreateFile:
 			result, err = executeFile(operation)
 		}
@@ -96,7 +96,11 @@ func Execute(plan Plan) (ExecutionReport, error) {
 	return report, nil
 }
 
-func executeDirectory(operation Operation) (Result, error) {
+func executeDirectory(operation Operation, workspaceRoot bool) (Result, error) {
+	if workspaceRoot {
+		return executeWorkspaceRoot(operation)
+	}
+
 	available, message, err := parentDirectoryAvailable(operation.Path)
 	if err != nil {
 		return Result{}, err
@@ -123,6 +127,27 @@ func executeDirectory(operation Operation) (Result, error) {
 		return Result{}, err
 	}
 	return createdResult(operation, "directory created"), nil
+}
+
+func executeWorkspaceRoot(operation Operation) (Result, error) {
+	info, err := os.Lstat(operation.Path)
+	switch {
+	case err == nil:
+		if info.IsDir() {
+			return skippedResult(operation, "directory already exists"), nil
+		}
+		return conflictResult(operation, "non-directory exists at required directory path"), nil
+	case !errors.Is(err, fs.ErrNotExist):
+		return Result{}, err
+	}
+
+	if err := os.MkdirAll(operation.Path, directoryPermissions); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return inspectDirectoryAfterRace(operation)
+		}
+		return Result{}, err
+	}
+	return createdResult(operation, "workspace root directory created"), nil
 }
 
 func inspectDirectoryAfterRace(operation Operation) (Result, error) {
