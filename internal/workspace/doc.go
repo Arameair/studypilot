@@ -1,6 +1,7 @@
-// Package workspace is reserved for StudyPilot's workspace-level behavior.
+// Package workspace defines StudyPilot's private and public vault contracts and
+// resolves their default and custom paths without accessing the filesystem.
 //
-// It will eventually own the private and public vault contracts, workspace
-// validation, safe initialization, private/public path separation, and
-// vault-version compatibility. These responsibilities are not implemented yet.
+// It will eventually also own workspace validation against disk, safe
+// initialization, and vault-version compatibility. Those responsibilities are
+// not implemented yet.
 package workspace

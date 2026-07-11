@@ -4,76 +4,124 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
 )
 
-var fixtureContracts = []struct {
-	name     string
-	root     string
-	expected []string
-}{
-	{
-		name: "private vault",
-		root: filepath.Join("..", "..", "testdata", "expected-private-vault"),
-		expected: []string{
-			".gitignore",
-			".obsidian/", ".obsidian/.gitkeep",
-			".studypilot/", ".studypilot/.gitkeep",
-			"00 Dashboard/", "00 Dashboard/.gitkeep",
-			"01 Courses/", "01 Courses/.gitkeep",
-			"02 Study/", "02 Study/.gitkeep",
-			"03 Draft Knowledge/", "03 Draft Knowledge/.gitkeep",
-			"04 Personal/", "04 Personal/.gitkeep",
-			"README.md",
-			"Templates/", "Templates/.gitkeep",
-		},
-	},
-	{
-		name: "public portfolio",
-		root: filepath.Join("..", "..", "testdata", "expected-public-portfolio"),
-		expected: []string{
-			".gitignore",
-			".obsidian/", ".obsidian/.gitkeep",
-			"00 Portfolio Index/", "00 Portfolio Index/.gitkeep",
-			"01 Projects/", "01 Projects/.gitkeep",
-			"02 Procedures/", "02 Procedures/.gitkeep",
-			"03 Troubleshooting/", "03 Troubleshooting/.gitkeep",
-			"04 Concepts/", "04 Concepts/.gitkeep",
-			"05 Labs/", "05 Labs/.gitkeep",
-			"06 Professional Development/", "06 Professional Development/.gitkeep",
-			"PUBLICATION-POLICY.md",
-			"README.md",
-			"Templates/", "Templates/.gitkeep",
-			"assets/", "assets/.gitkeep",
-		},
-	},
+func TestVaultContractsAreValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		contract VaultContract
+	}{
+		{name: "private", contract: PrivateVaultContract()},
+		{name: "portfolio", contract: PublicPortfolioContract()},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.contract.Validate(); err != nil {
+				t.Fatalf("Validate() error = %v", err)
+			}
+		})
+	}
 }
 
-func TestFixtureContracts(t *testing.T) {
-	for _, contract := range fixtureContracts {
-		contract := contract
-		t.Run(contract.name, func(t *testing.T) {
-			actual := walkFixture(t, contract.root)
-			expected := slices.Clone(contract.expected)
-			slices.Sort(expected)
+func TestPrivateContractContentSafety(t *testing.T) {
+	contract := PrivateVaultContract()
+	files := requiredFilesByPath(contract)
 
-			if !reflect.DeepEqual(actual, expected) {
+	readme := strings.ToLower(files["README.md"])
+	for _, required := range []string{
+		"permanently private",
+		"paid-course transcripts",
+		"paid-course assets",
+		"must never be made public",
+		"public material must be created through a separate review process",
+	} {
+		if !strings.Contains(readme, required) {
+			t.Errorf("private contract README does not contain %q", required)
+		}
+	}
+
+	gitignore := strings.ToLower(files[".gitignore"])
+	if strings.Contains(gitignore, "*.md") || strings.Contains(gitignore, ".md") {
+		t.Error("private contract .gitignore must not ignore Markdown content")
+	}
+}
+
+func TestVaultContractRejectsMalformedContracts(t *testing.T) {
+	validPrivate := PrivateVaultContract()
+	validPublic := PublicPortfolioContract()
+
+	tests := []struct {
+		name     string
+		contract VaultContract
+	}{
+		{name: "unknown kind", contract: VaultContract{Kind: "unknown", Directories: []string{".obsidian"}}},
+		{name: "empty directory", contract: withDirectory(validPrivate, "")},
+		{name: "absolute directory", contract: withDirectory(validPrivate, string(filepath.Separator)+"tmp")},
+		{name: "parent traversal directory", contract: withDirectory(validPrivate, "notes/../private")},
+		{name: "duplicate directory", contract: withDirectory(validPrivate, validPrivate.Directories[0])},
+		{name: "empty file", contract: withFile(validPrivate, RequiredFile{})},
+		{name: "duplicate file", contract: withFile(validPrivate, validPrivate.Files[0])},
+		{name: "directory and file collision", contract: withFile(validPrivate, RequiredFile{Path: validPrivate.Directories[0]})},
+		{name: "missing obsidian", contract: withoutDirectory(validPrivate, ".obsidian")},
+		{name: "private missing studypilot", contract: withoutDirectory(validPrivate, ".studypilot")},
+		{name: "private missing readme", contract: withoutFile(validPrivate, "README.md")},
+		{name: "public contains studypilot", contract: withDirectory(validPublic, ".studypilot")},
+		{name: "public missing policy", contract: withoutFile(validPublic, "PUBLICATION-POLICY.md")},
+		{name: "public transcript directory", contract: withDirectory(validPublic, "archive/TrAnScRiPtS")},
+		{name: "public recording directory", contract: withDirectory(validPublic, "Recordings")},
+		{name: "public audio directory", contract: withDirectory(validPublic, "AUDIO")},
+		{name: "public course materials directory", contract: withDirectory(validPublic, "Course Materials")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.contract.Validate(); err == nil {
+				t.Fatal("Validate() error = nil, want error")
+			}
+		})
+	}
+}
+
+func TestContractFixturesMatchMachineReadableContracts(t *testing.T) {
+	tests := []struct {
+		name     string
+		root     string
+		contract VaultContract
+	}{
+		{name: "private vault", root: filepath.Join("..", "..", "testdata", "expected-private-vault"), contract: PrivateVaultContract()},
+		{name: "public portfolio", root: filepath.Join("..", "..", "testdata", "expected-public-portfolio"), contract: PublicPortfolioContract()},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := walkFixture(t, test.root)
+			expected := expectedFixturePaths(test.contract)
+			if !slices.Equal(actual, expected) {
 				t.Fatalf("fixture paths differ\nactual:   %q\nexpected: %q", actual, expected)
+			}
+
+			for _, file := range test.contract.Files {
+				contents, err := os.ReadFile(filepath.Join(test.root, filepath.FromSlash(file.Path)))
+				if err != nil {
+					t.Fatalf("read required file %q: %v", file.Path, err)
+				}
+				if strings.TrimSpace(string(contents)) == "" {
+					t.Errorf("required file %q is empty", file.Path)
+				}
 			}
 		})
 	}
 }
 
 func TestPrivateFixtureWarning(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "expected-private-vault")
-	warning, err := os.ReadFile(filepath.Join(root, "README.md"))
+	warning, err := os.ReadFile(filepath.Join("..", "..", "testdata", "expected-private-vault", "README.md"))
 	if err != nil {
 		t.Fatalf("read private warning: %v", err)
 	}
-
 	text := strings.ToLower(string(warning))
 	for _, required := range []string{"copyrighted paid-course", "must never be made public"} {
 		if !strings.Contains(text, required) {
@@ -83,12 +131,10 @@ func TestPrivateFixtureWarning(t *testing.T) {
 }
 
 func TestPublicFixturePublicationPolicy(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "expected-public-portfolio")
-	policy, err := os.ReadFile(filepath.Join(root, "PUBLICATION-POLICY.md"))
+	policy, err := os.ReadFile(filepath.Join("..", "..", "testdata", "expected-public-portfolio", "PUBLICATION-POLICY.md"))
 	if err != nil {
 		t.Fatalf("read publication policy: %v", err)
 	}
-
 	text := strings.ToLower(string(policy))
 	for _, required := range []string{"explicit human approval", "never copy transcripts"} {
 		if !strings.Contains(text, required) {
@@ -97,32 +143,21 @@ func TestPublicFixturePublicationPolicy(t *testing.T) {
 	}
 }
 
-func TestPublicFixtureHasNoTranscriptOrRecordingDirectories(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "expected-public-portfolio")
-	prohibited := map[string]bool{
-		"transcript":  true,
-		"transcripts": true,
-		"recording":   true,
-		"recordings":  true,
+func expectedFixturePaths(contract VaultContract) []string {
+	paths := make([]string, 0, len(contract.Directories)*2+len(contract.Files))
+	for _, directory := range contract.Directories {
+		directory = filepath.ToSlash(filepath.Clean(directory))
+		paths = append(paths, directory+"/", directory+"/.gitkeep")
 	}
-
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() && prohibited[strings.ToLower(entry.Name())] {
-			t.Errorf("public fixture contains prohibited directory %q", path)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk public fixture: %v", err)
+	for _, file := range contract.Files {
+		paths = append(paths, filepath.ToSlash(filepath.Clean(file.Path)))
 	}
+	slices.Sort(paths)
+	return paths
 }
 
 func walkFixture(t *testing.T, root string) []string {
 	t.Helper()
-
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -131,7 +166,6 @@ func walkFixture(t *testing.T, root string) []string {
 		if path == root {
 			return nil
 		}
-
 		relative, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
@@ -146,7 +180,38 @@ func walkFixture(t *testing.T, root string) []string {
 	if err != nil {
 		t.Fatalf("walk fixture %q: %v", root, err)
 	}
-
 	slices.Sort(paths)
 	return paths
+}
+
+func withDirectory(contract VaultContract, path string) VaultContract {
+	contract.Directories = append(slices.Clone(contract.Directories), path)
+	contract.Files = slices.Clone(contract.Files)
+	return contract
+}
+
+func withoutDirectory(contract VaultContract, path string) VaultContract {
+	contract.Directories = slices.DeleteFunc(slices.Clone(contract.Directories), func(candidate string) bool { return candidate == path })
+	contract.Files = slices.Clone(contract.Files)
+	return contract
+}
+
+func withFile(contract VaultContract, file RequiredFile) VaultContract {
+	contract.Directories = slices.Clone(contract.Directories)
+	contract.Files = append(slices.Clone(contract.Files), file)
+	return contract
+}
+
+func withoutFile(contract VaultContract, path string) VaultContract {
+	contract.Directories = slices.Clone(contract.Directories)
+	contract.Files = slices.DeleteFunc(slices.Clone(contract.Files), func(candidate RequiredFile) bool { return candidate.Path == path })
+	return contract
+}
+
+func requiredFilesByPath(contract VaultContract) map[string]string {
+	files := make(map[string]string, len(contract.Files))
+	for _, file := range contract.Files {
+		files[file.Path] = file.Content
+	}
+	return files
 }
