@@ -1,0 +1,94 @@
+package application
+
+import "github.com/Arameair/studypilot/internal/filesystem"
+
+// Plan operation kinds, mirrored as stable strings so adapters can render a
+// dry run without importing the filesystem package.
+const (
+	PlanKindDirectory = "create-directory"
+	PlanKindFile      = "create-file"
+)
+
+// PlannedOperation is a UI-neutral description of one planned filesystem action.
+// It carries no authority to execute anything.
+type PlannedOperation struct {
+	Kind string
+	Path string
+}
+
+// PlanResult is the descriptive output of a planning method. Its operations are
+// in stable execution order and can be rendered as a dry run without
+// regenerating the plan. It deliberately does not expose the authority-bearing
+// filesystem plan.
+type PlanResult struct {
+	Operations []PlannedOperation
+}
+
+// OutcomeStatus is the UI-neutral result of one executed operation.
+type OutcomeStatus string
+
+const (
+	OutcomeCreated  OutcomeStatus = "created"
+	OutcomeSkipped  OutcomeStatus = "skipped"
+	OutcomeConflict OutcomeStatus = "conflict"
+)
+
+// PathOutcome records what actually happened to one path during execution.
+type PathOutcome struct {
+	Path   string
+	Status OutcomeStatus
+	Detail string
+}
+
+// ExecutionResult reports the actual outcome of an execution. Counts reflect
+// what happened, not what was predicted, and outcomes preserve stable order and
+// conflict detail so any interface can present meaningful results.
+type ExecutionResult struct {
+	Created   int
+	Skipped   int
+	Conflicts int
+	Outcomes  []PathOutcome
+}
+
+func planResult(plan filesystem.Plan) PlanResult {
+	operations := make([]PlannedOperation, len(plan.Operations))
+	for i, operation := range plan.Operations {
+		operations[i] = PlannedOperation{Kind: planKind(operation.Kind), Path: operation.Path}
+	}
+	return PlanResult{Operations: operations}
+}
+
+func executionResult(report filesystem.ExecutionReport) ExecutionResult {
+	outcomes := make([]PathOutcome, len(report.Results))
+	for i, result := range report.Results {
+		outcomes[i] = PathOutcome{
+			Path:   result.Operation.Path,
+			Status: outcomeStatus(result.Status),
+			Detail: result.Message,
+		}
+	}
+	return ExecutionResult{
+		Created:   report.CreatedCount(),
+		Skipped:   report.SkippedCount(),
+		Conflicts: report.ConflictCount(),
+		Outcomes:  outcomes,
+	}
+}
+
+func planKind(kind filesystem.OperationKind) string {
+	if kind == filesystem.OperationCreateFile {
+		return PlanKindFile
+	}
+	return PlanKindDirectory
+}
+
+func outcomeStatus(status filesystem.ResultStatus) OutcomeStatus {
+	switch status {
+	case filesystem.ResultCreated:
+		return OutcomeCreated
+	case filesystem.ResultSkipped:
+		return OutcomeSkipped
+	default:
+		return OutcomeConflict
+	}
+}

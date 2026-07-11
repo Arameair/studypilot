@@ -1,7 +1,11 @@
-// Command studypilot is the command-line entry point for StudyPilot.
+// Command studypilot is the command-line entry point for StudyPilot. It is a
+// thin adapter: it parses flags, builds application requests, calls the shared
+// application service, and renders the results. All orchestration and domain
+// logic lives in internal/application and the domain packages it calls.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,12 +15,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Arameair/studypilot/internal/application"
 	"github.com/Arameair/studypilot/internal/course"
-	"github.com/Arameair/studypilot/internal/filesystem"
-	"github.com/Arameair/studypilot/internal/workspace"
 )
 
 var version = "dev"
+
+// now is the CLI's clock seam. It is injected into the application service as
+// the domain clock rather than being read for timestamps here; tests replace it
+// to make course and module creation deterministic.
 var now = time.Now
 
 const usage = `StudyPilot
@@ -48,7 +55,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return usageError(stderr, "version does not accept arguments")
 		}
 		if _, err := fmt.Fprintf(stdout, "StudyPilot %s\n", version); err != nil {
-			return runtimeError(stderr, "write version", err)
+			return 1
 		}
 		return 0
 	case "init":
@@ -78,70 +85,19 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	if flags.NArg() != 0 {
 		return usageError(stderr, fmt.Sprintf("unexpected init argument %q", flags.Arg(0)))
 	}
-	paths, err := resolvePaths(root)
-	if err != nil {
-		return runtimeError(stderr, "resolve workspace paths", err)
-	}
-	plan, err := filesystem.NewPlan(paths)
-	if err != nil {
-		return runtimeError(stderr, "construct filesystem plan", err)
-	}
-	if err := plan.Validate(); err != nil {
-		return runtimeError(stderr, "validate filesystem plan", err)
-	}
 
+	service, code := newService(stderr)
+	if service == nil {
+		return code
+	}
+	req := application.WorkspaceRequest{Root: root.value}
+	ctx := context.Background()
 	if dryRun.value {
-		return printDryRun(plan, stdout, stderr)
+		result, err := service.PlanWorkspaceInitialization(ctx, req)
+		return renderPlan(result, err, stdout, stderr)
 	}
-	return executeCreation(plan, "Initialization", stdout, stderr)
-}
-
-func printDryRun(plan filesystem.Plan, stdout, stderr io.Writer) int {
-	for _, line := range plan.Lines() {
-		if _, err := fmt.Fprintln(stdout, line); err != nil {
-			return runtimeError(stderr, "write dry-run plan", err)
-		}
-	}
-	if _, err := fmt.Fprintf(stdout, "Dry run complete: %d operations planned.\n", len(plan.Operations)); err != nil {
-		return runtimeError(stderr, "write dry-run summary", err)
-	}
-	if _, err := fmt.Fprintln(stdout, "No files or directories were created."); err != nil {
-		return runtimeError(stderr, "write dry-run summary", err)
-	}
-	return 0
-}
-
-func executeCreation(plan filesystem.Plan, label string, stdout, stderr io.Writer) int {
-	report, executionErr := filesystem.Execute(plan)
-	for _, result := range report.Results {
-		writer := stdout
-		if result.Status == filesystem.ResultConflict {
-			writer = stderr
-		}
-		if _, err := fmt.Fprintf(writer, "%-10s%s", strings.ToUpper(string(result.Status)), result.Operation.Path); err != nil {
-			return runtimeError(stderr, "write initialization result", err)
-		}
-		if result.Status == filesystem.ResultConflict && result.Message != "" {
-			if _, err := fmt.Fprintf(writer, ": %s", result.Message); err != nil {
-				return runtimeError(stderr, "write initialization result", err)
-			}
-		}
-		if _, err := fmt.Fprintln(writer); err != nil {
-			return runtimeError(stderr, "write initialization result", err)
-		}
-	}
-
-	if _, err := fmt.Fprintf(stdout, "%s complete:\n  Created: %d\n  Skipped: %d\n  Conflicts: %d\n", label,
-		report.CreatedCount(), report.SkippedCount(), report.ConflictCount()); err != nil {
-		return runtimeError(stderr, "write initialization summary", err)
-	}
-	if executionErr != nil {
-		return runtimeError(stderr, "execute filesystem plan", executionErr)
-	}
-	if report.HasConflicts() {
-		return 1
-	}
-	return 0
+	result, err := service.InitializeWorkspace(ctx, req)
+	return renderExecution(result, err, "Initialization", stdout, stderr)
 }
 
 func runCourse(args []string, stdout, stderr io.Writer) int {
@@ -168,21 +124,18 @@ func runCourse(args []string, stdout, stderr io.Writer) int {
 		return usageError(stderr, "course create requires --name")
 	}
 
-	paths, err := resolvePaths(root)
-	if err != nil {
-		return runtimeError(stderr, "resolve workspace paths", err)
+	service, code := newService(stderr)
+	if service == nil {
+		return code
 	}
-	plan, err := course.NewCoursePlan(paths, name.value, now())
-	if err != nil {
-		if errors.Is(err, course.ErrInvalidName) {
-			return usageError(stderr, err.Error())
-		}
-		return runtimeError(stderr, "construct course plan", err)
-	}
+	req := application.CourseCreateRequest{Root: root.value, Name: name.value}
+	ctx := context.Background()
 	if dryRun.value {
-		return printDryRun(plan, stdout, stderr)
+		result, err := service.PlanCourseCreation(ctx, req)
+		return renderPlan(result, err, stdout, stderr)
 	}
-	return executeCreation(plan, "Course creation", stdout, stderr)
+	result, err := service.CreateCourse(ctx, req)
+	return renderExecution(result, err, "Course creation", stdout, stderr)
 }
 
 func runModule(args []string, stdout, stderr io.Writer) int {
@@ -219,28 +172,38 @@ func runModule(args []string, stdout, stderr io.Writer) int {
 		return usageError(stderr, "module create requires --name")
 	}
 
-	paths, err := resolvePaths(root)
-	if err != nil {
-		return runtimeError(stderr, "resolve workspace paths", err)
+	service, code := newService(stderr)
+	if service == nil {
+		return code
 	}
-	plan, err := course.NewModulePlan(paths, courseName.value, number.value, moduleName.value, now())
-	if err != nil {
-		if errors.Is(err, course.ErrInvalidName) || errors.Is(err, course.ErrInvalidModuleNumber) {
-			return usageError(stderr, err.Error())
-		}
-		return runtimeError(stderr, "construct module plan", err)
+	req := application.ModuleCreateRequest{
+		Root:      root.value,
+		CourseRef: courseName.value,
+		Number:    number.value,
+		Name:      moduleName.value,
 	}
+	ctx := context.Background()
 	if dryRun.value {
-		return printDryRun(plan, stdout, stderr)
+		result, err := service.PlanModuleCreation(ctx, req)
+		return renderPlan(result, err, stdout, stderr)
 	}
-	return executeCreation(plan, "Module creation", stdout, stderr)
+	result, err := service.CreateModule(ctx, req)
+	return renderExecution(result, err, "Module creation", stdout, stderr)
 }
 
-func resolvePaths(root rootFlag) (workspace.Paths, error) {
-	if root.set {
-		return workspace.PathsFromRoot(root.value)
+// newService wires the production application service using the CLI clock seam
+// and StudyPilot's secure ID generator. On construction failure it reports the
+// error and returns a nil service with the exit code to use.
+func newService(stderr io.Writer) (*application.Service, int) {
+	service, err := application.NewService(application.Dependencies{
+		Now:        now,
+		GenerateID: course.DefaultIDGenerator,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: initialize application service: %v\n", err)
+		return nil, 1
 	}
-	return workspace.DefaultPaths()
+	return service, 0
 }
 
 type rootFlag struct {
@@ -330,9 +293,4 @@ func usageError(stderr io.Writer, message string) int {
 	fmt.Fprintf(stderr, "Error: %s\n\n", strings.TrimSpace(message))
 	writeUsage(stderr)
 	return 2
-}
-
-func runtimeError(stderr io.Writer, action string, err error) int {
-	fmt.Fprintf(stderr, "Error: %s: %v\n", action, err)
-	return 1
 }

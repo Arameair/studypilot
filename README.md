@@ -80,6 +80,16 @@ reported rather than adopted or overwritten. Scoped course and module plans
 are restricted to validated boundaries beneath the private vault and cannot
 authorize public-portfolio writes.
 
+## Internal architecture
+
+Every command runs through a shared, UI-neutral application-service layer
+(`internal/application`) that orchestrates path resolution, deterministic
+planning, and safe execution. The command-line interface is a thin adapter: it
+parses flags, builds application requests, and renders the typed results and
+errors the service returns. The same use cases are intended to back future
+interfaces without duplicating logic. See
+[the architecture](docs/architecture.md) for details.
+
 ## Not included
 
 This milestone does not implement `doctor`, audio capture, Whisper

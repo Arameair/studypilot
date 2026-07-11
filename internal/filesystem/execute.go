@@ -15,10 +15,12 @@ const (
 	filePermissions      fs.FileMode = 0o640
 )
 
-var (
-	errDestinationExists = errors.New("destination already exists")
-	errUnsafeSymlink     = errors.New("unsafe symlink encountered")
-)
+// ErrUnsafePath reports that execution encountered a symlink on a path it was
+// asked to create or inspect. It is exported so callers can classify the
+// failure without matching on message text.
+var ErrUnsafePath = errors.New("unsafe symlink encountered")
+
+var errDestinationExists = errors.New("destination already exists")
 
 // ResultStatus describes the outcome of one planned operation.
 type ResultStatus string
@@ -74,7 +76,7 @@ func Execute(plan Plan) (ExecutionReport, error) {
 	report := ExecutionReport{Results: make([]Result, 0, len(plan.Operations))}
 	for _, operation := range plan.Operations {
 		if err := checkPathForSymlinks(operation.Path); err != nil {
-			if errors.Is(err, errUnsafeSymlink) {
+			if errors.Is(err, ErrUnsafePath) {
 				report.Results = append(report.Results, conflictResult(operation, err.Error()))
 			}
 			return report, fmt.Errorf("check operation path %q: %w", operation.Path, err)
@@ -205,7 +207,7 @@ func inspectExistingFile(operation Operation) (Result, bool, error) {
 		return Result{}, false, err
 	}
 	if before.Mode()&os.ModeSymlink != 0 {
-		return Result{}, false, errUnsafeSymlink
+		return Result{}, false, ErrUnsafePath
 	}
 	if !before.Mode().IsRegular() {
 		return conflictResult(operation, "non-file exists at required file path"), true, nil
@@ -280,7 +282,7 @@ func parentDirectoryAvailable(path string) (bool, string, error) {
 			return false, "", err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return false, "", fmt.Errorf("%w at %q", errUnsafeSymlink, current)
+			return false, "", fmt.Errorf("%w at %q", ErrUnsafePath, current)
 		}
 		if !info.IsDir() {
 			return false, "required parent path is not a directory", nil
@@ -300,7 +302,7 @@ func checkPathForSymlinks(path string) error {
 			return err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%w at %q", errUnsafeSymlink, current)
+			return fmt.Errorf("%w at %q", ErrUnsafePath, current)
 		}
 		if !info.IsDir() && current != path {
 			return nil
