@@ -190,3 +190,21 @@ Repositories are cached per workspace in a mutex-protected service map so
 concurrent calls share in-process mutation locks. UI adapters never receive a
 repository or filesystem authority. See
 [session-lifecycle.md](session-lifecycle.md).
+
+## Session CLI adapter and tolerant inspection
+
+`cmd/studypilot session` is a thin adapter over the lifecycle application
+services. It parses flags, calls `internal/application`, renders human or JSON
+results, and maps application error kinds to exit codes. It never constructs
+session identity, calls the session repository, builds filesystem authorities,
+mutates runtime JSON, or restates transition rules.
+
+Write operations remain strict: `internal/session` fails closed for the whole
+module when a sibling session directory is malformed, unmanaged, duplicated, or
+unsafe, because acting on an ambiguous or unsafe module is refused. A separate
+tolerant `Repository.Scan` powers `Service.InspectModuleSessions` and the
+`session inspect --all` command: it returns healthy records while reporting every
+problematic directory as a typed issue, never follows symlinks, produces no
+mutation authority for malformed entries, treats no malformed entry as healthy,
+and repairs nothing. Reporting issues is a successful read, not a failure. See
+[session-cli.md](session-cli.md).

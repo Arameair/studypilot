@@ -21,7 +21,8 @@ dumping-ground packages.
 
 `workspace` owns vault contracts, `course` identity, `filesystem` safe writes,
 `runtime` status schemas, `schema` document ownership, `migration` upgrades,
-`session` operational persistence, and `application` UI-neutral lifecycle orchestration.
+`session` operational persistence plus the tolerant read-only scan, `application`
+UI-neutral lifecycle orchestration, and `cmd/studypilot` the thin CLI adapter.
 
 ## Privacy Boundaries
 
@@ -42,8 +43,12 @@ real vaults.
 
 ## Current Milestone
 
-Session lifecycle application services are in the current working tree, built
-on the committed operational repository.
+The session CLI adapter and resilient workflow inspection are in the current
+working tree, built on the committed session lifecycle application services.
+`cmd/studypilot session` exposes create/get/start/interrupt/recover/resume/
+complete/abandon/list/inspect with human and JSON output and a revision
+workflow. Writes stay strict; `session inspect --all` is a tolerant, read-only
+diagnostic backed by `session.Scan` and `Service.InspectModuleSessions`.
 
 ## Session Stash Warning
 
@@ -52,9 +57,10 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review and commit, add a thin session CLI adapter and workflow inspection
-over `internal/application`. Review stash concepts without applying it; do not
-restore the old implementation. Recording remains out of scope.
+After review and commit, define capture service contracts over
+`internal/application`, building on the lifecycle boundary the session CLI now
+exercises. Review stash concepts without applying it; do not restore the old
+implementation. Recording remains out of scope.
 
 ## Real-Vault Safety Rule
 

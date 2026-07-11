@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -296,6 +298,35 @@ func TestConcurrentApplicationStartsHaveOneWinner(t *testing.T) {
 	}
 }
 
+func TestInspectModuleSessionsToleratesMalformedSibling(t *testing.T) {
+	fixture := newLifecycleFixture(t)
+	created := fixture.create(t, "Healthy", "healthy")
+
+	sessionsRoot := filepath.Join(fixture.root, "Learning-Vault-Private", "01 Courses", "Lifecycle Course", "Modules", "01 - Lifecycle Module", "Sessions")
+	broken := filepath.Join(sessionsRoot, "099 - Broken")
+	if err := os.MkdirAll(broken, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(broken, ".studypilot-session.json"), []byte("{ not json"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := fixture.service.InspectModuleSessions(context.Background(), InspectModuleRequest{Root: fixture.root, CourseRef: created.CourseID, ModuleRef: created.ModuleID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Sessions) != 1 || result.Sessions[0].ID != created.ID {
+		t.Fatalf("healthy session hidden: %+v", result.Sessions)
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Kind != string(session.ScanIssueMalformedMetadata) || result.Issues[0].Directory != "099 - Broken" {
+		t.Fatalf("issue not reported: %+v", result.Issues)
+	}
+	// A write operation on the same module still fails closed.
+	if _, err := fixture.service.CreateSession(context.Background(), CreateSessionRequest{Root: fixture.root, CourseRef: created.CourseID, ModuleRef: created.ModuleID, Title: "Blocked"}); Classify(err) == "" {
+		t.Fatal("write operation unexpectedly succeeded on malformed module")
+	}
+}
+
 type fakeLifecycleRepository struct {
 	record     session.Record
 	inspection session.Inspection
@@ -328,6 +359,9 @@ func (f *fakeLifecycleRepository) Inspect(context.Context, string, ...string) se
 }
 func (f *fakeLifecycleRepository) DiscoverIncomplete(context.Context, string, string) (session.Discovery, error) {
 	return session.Discovery{}, nil
+}
+func (f *fakeLifecycleRepository) Scan(context.Context, string, string) (session.ScanResult, error) {
+	return session.ScanResult{}, nil
 }
 
 func TestActiveCaptureAndUncertainRecoveryAreRejected(t *testing.T) {

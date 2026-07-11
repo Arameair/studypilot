@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-Session Lifecycle Application Services follows the committed session
-operational repository milestone. No SHA is hardcoded here.
+Session CLI Adapter and Resilient Workflow Inspection follows the committed
+session lifecycle application services milestone. No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -16,19 +16,26 @@ operational repository milestone. No SHA is hardcoded here.
   atomic updates, inspection, and incomplete-session discovery
 - UI-neutral create/start/interrupt/recover/resume/complete/abandon/get/list/
   inspect application use cases
+- Tolerant read-only module scan and `InspectModuleSessions` returning healthy
+  summaries alongside typed per-directory issues
+- Thin `studypilot session` CLI over the lifecycle services with human and JSON
+  output, a revision workflow, and strict-write/tolerant-read behavior
 
 ## Package Map
 
-`application` orchestrates; `course` owns course/module identity; `session` owns
-session identity and operational persistence; `workspace`
-owns vault contracts; `filesystem` owns creation and mutation; `runtime` owns
-status contracts; `schema` owns documents; `migration` owns upgrades.
+`cmd/studypilot` is the thin CLI adapter; `application` orchestrates; `course`
+owns course/module identity; `session` owns session identity, operational
+persistence, and the tolerant read-only scan; `workspace` owns vault contracts;
+`filesystem` owns creation and mutation; `runtime` owns status contracts;
+`schema` owns documents; `migration` owns upgrades.
 
 ## Known Limitations
 
-No session CLI, capture, transcription, desktop UI, public migration
-application, rollback command, or cross-process mutation lock exists. History is
-stored as immutable records rather than shared JSONL.
+No capture, transcription, desktop UI, public migration application, rollback
+command, or cross-process mutation lock exists. History is stored as immutable
+records rather than shared JSONL. The incomplete `list` fails closed on a
+malformed sibling; tolerant diagnosis is available through `session inspect
+--all`.
 
 ## Session Stash Warning
 
@@ -37,8 +44,7 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Add a thin session CLI adapter and workflow inspection over the application
-service. Do not restore the stash automatically.
+Capture service contracts. Do not restore the stash automatically.
 
 ## Verification
 

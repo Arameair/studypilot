@@ -23,6 +23,7 @@ type SessionRepository interface {
 	UpdateRuntime(context.Context, session.Record, session.RuntimeUpdate) (session.Record, error)
 	Inspect(context.Context, string, ...string) session.Inspection
 	DiscoverIncomplete(context.Context, string, string) (session.Discovery, error)
+	Scan(context.Context, string, string) (session.ScanResult, error)
 }
 
 type SessionRepositoryFactory func(workspace.Paths, session.Clock, session.IDGenerator) (SessionRepository, error)
@@ -264,6 +265,49 @@ func (s *Service) InspectSession(ctx context.Context, req SessionReferenceReques
 		result.Issues = []SessionIssue{{Code: string(inspection.Status), Message: "session requires manual inspection"}}
 	}
 	return result, nil
+}
+
+// InspectModuleSessions returns a tolerant, read-only view of one module's
+// sessions: healthy summaries plus a report of every malformed, unmanaged,
+// duplicated, or unsafe session directory. One broken sibling never hides the
+// healthy sessions, and no repair or mutation is performed. Reported issues are
+// data, not a command failure.
+func (s *Service) InspectModuleSessions(ctx context.Context, req InspectModuleRequest) (SessionScanResult, error) {
+	ctx = nonNilContext(ctx)
+	_, parentCourse, parentModule, repository, err := s.resolveSessionParents(req.Root, req.CourseRef, req.ModuleRef, opInspectSession)
+	if err != nil {
+		return SessionScanResult{}, err
+	}
+	scan, err := repository.Scan(ctx, parentCourse.Metadata.ID, parentModule.Metadata.ID)
+	if err != nil {
+		return SessionScanResult{}, newError(opInspectSession, "scan module sessions", err)
+	}
+	result := SessionScanResult{}
+	for _, record := range scan.Records {
+		result.Sessions = append(result.Sessions, sessionSummary(record, parentModule.Metadata.Number))
+	}
+	for _, issue := range scan.Issues {
+		result.Issues = append(result.Issues, SessionScanIssue{
+			Directory:   issue.SafeName,
+			Kind:        string(issue.Kind),
+			Message:     issue.Message,
+			Recoverable: recoverableIssue(issue.Kind),
+		})
+	}
+	return result, nil
+}
+
+// recoverableIssue reports whether an issue is one a user may be able to repair
+// from a backup while the session's immutable identity remains intact (a missing
+// or malformed runtime file). Identity, duplication, and unsafe-path issues are
+// not treated as user-recoverable.
+func recoverableIssue(kind session.ScanIssueKind) bool {
+	switch kind {
+	case session.ScanIssueMissingRuntime, session.ScanIssueMalformedRuntime:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) resolveSession(ctx context.Context, req SessionReferenceRequest, op string) (session.Record, SessionRepository, error) {

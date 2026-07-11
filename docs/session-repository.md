@@ -62,10 +62,28 @@ records ordered by session number then immutable ID. Completed and abandoned
 records are excluded. Symlinks and malformed managed directories are reported
 as issues; unrelated regular files are ignored.
 
+## Strict writes and tolerant reads
+
+Write operations resolve sessions through a strict scan that fails the whole
+module when any sibling directory is malformed, unmanaged, duplicated, or
+unsafe, so an ambiguous or unsafe module never accepts a mutation.
+
+A separate tolerant `Scan` supports read-only diagnosis. It classifies each
+session directory beneath `Sessions` without failing the caller: healthy records
+are returned while every problematic directory is reported as a typed
+`ScanIssue` (`unmanaged`, `malformed_metadata`, `malformed_runtime`,
+`duplicate_number`, `duplicate_id`, `missing_runtime`, `identity_mismatch`,
+`unsafe_path`, `unsupported_schema`). Duplicate numbers or IDs are reported for
+every affected directory and none of them is returned as healthy. Symlinks are
+never followed, unrelated regular files are ignored, no file contents are
+exposed, malformed entries produce no mutation authority, and nothing is
+repaired. Only a confirmed-healthy directory is re-read through the authoritative
+load path.
+
 ## Current exclusions and next step
 
-Lifecycle orchestration now exists in `internal/application`; interfaces should
-not call the repository directly. There are no CLI commands, recording, media
-segments, Whisper, transcription execution, Markdown templates, GUI, tray, or
-background workers. The next safe milestone is a thin session CLI adapter and
-workflow inspection.
+Lifecycle orchestration exists in `internal/application` and is exposed through a
+thin `studypilot session` CLI; interfaces should not call the repository
+directly. There is no recording, media segments, Whisper, transcription
+execution, Markdown templates, GUI, tray, or background workers. The next safe
+milestone is capture service contracts.

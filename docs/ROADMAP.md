@@ -31,26 +31,31 @@ and incomplete discovery.
 ## Phase 10 — Session Lifecycle (complete)
 UI-neutral explicit transitions, recovery, concurrency, listing, and inspection.
 
-## Next Milestone — Session CLI Adapter (future)
-Thin commands and workflow inspection over application services; no recording.
+## Phase 11 — Session CLI Adapter and Resilient Inspection (complete)
+Thin session commands over the application services with human and JSON output,
+a revision workflow, and a tolerant read-only module inspection that reports
+malformed siblings without hiding healthy sessions. No recording.
 
-## Phase 11 — Capture Segments and Recovery (future)
+## Next Milestone — Capture Service Contracts (future)
+UI-neutral capture state services over the lifecycle boundary; no recording yet.
+
+## Phase 12 — Capture Segments and Recovery (future)
 Numbered segments and crash reconciliation.
 
-## Phase 12 — Asset Import and Routing (future)
+## Phase 13 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 13 — Transcription (future)
+## Phase 14 — Transcription (future)
 Whisper and derived transcripts.
 
-## Phase 14 — Diagnostics (future)
+## Phase 15 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 15 — Desktop and Tray UI (future)
+## Phase 16 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 16 — Private Git Workflow (future)
+## Phase 17 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 17 — Publication Workflow (future)
+## Phase 18 — Publication Workflow (future)
 Reviewed derivatives with human approval.

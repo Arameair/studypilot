@@ -33,6 +33,7 @@ Usage:
   studypilot init [--dry-run] [--root PATH]
   studypilot course create --name NAME [--dry-run] [--root PATH]
   studypilot module create --course NAME --number NUMBER --name NAME [--dry-run] [--root PATH]
+  studypilot session <subcommand> ...   (run 'studypilot session help' for details)
 `
 
 func main() {
@@ -64,6 +65,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runCourse(args[1:], stdout, stderr)
 	case "module":
 		return runModule(args[1:], stdout, stderr)
+	case "session":
+		return runSession(args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}
@@ -212,6 +215,7 @@ type rootFlag struct {
 }
 
 type boolFlag struct {
+	name  string
 	value bool
 	set   bool
 }
@@ -220,7 +224,11 @@ func (f *boolFlag) String() string { return strconv.FormatBool(f.value) }
 
 func (f *boolFlag) Set(value string) error {
 	if f.set {
-		return errors.New("--dry-run may only be specified once")
+		name := f.name
+		if name == "" {
+			name = "flag"
+		}
+		return fmt.Errorf("%s may only be specified once", name)
 	}
 	parsed, err := strconv.ParseBool(value)
 	if err != nil {

@@ -53,12 +53,22 @@ leaves the old revision; a crash after replacement exposes the new revision.
 Old/intended-hash inspection reconciles uncertain directory sync. No separate
 intent field is needed before multi-step external side effects exist.
 
+## Tolerant module inspection
+
+Alongside single-session inspection, `InspectModuleSessions` returns a
+`SessionScanResult`: healthy `SessionSummary` values plus a `SessionScanIssue`
+for every malformed, unmanaged, duplicated, or unsafe session directory. It is
+read-only, follows no symlinks, exposes no file contents, and performs no repair.
+Discovering issues is a successful inspection, not a command error, so the
+`session inspect --all` command still exits `0`. Write use cases keep failing
+closed on an ambiguous or unsafe module. See [session-cli.md](session-cli.md).
+
 ## Current exclusions and recommendation
 
-There are no CLI session commands, recording, device detection, media segments,
-Whisper, transcription workers, GUI, tray, daemon, or real-vault workflow.
+The lifecycle API is now exposed through a thin `studypilot session` CLI. There
+is no recording, device detection, media segments, Whisper, transcription
+workers, GUI, tray, daemon, or real-vault workflow.
 
-The recommended next milestone is **Session CLI adapter and workflow
-inspection**. The lifecycle API is ready for a thin adapter, while capture
-contracts should wait until lifecycle behavior is inspectable through a user
-interface without bypassing the application boundary.
+The recommended next milestone is **capture service contracts**. Lifecycle
+behavior is now inspectable through a user interface without bypassing the
+application boundary, so capture can build on it.

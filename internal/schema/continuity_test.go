@@ -14,6 +14,7 @@ func TestProjectContinuityDocuments(t *testing.T) {
 		"DEVELOPMENT_HANDOFF.md": {"# Development Handoff", "## Architecture Rules", "## Session Stash Warning", "## Next Safe Action"},
 		"session-repository.md":  {"# Session Operational Repository", "## Immutable and mutable state", "## Recovery and discovery", "## Current exclusions and next step"},
 		"session-lifecycle.md":   {"# Session Lifecycle Application Services", "## Allowed session transitions", "## Explicit completion", "## Current exclusions and recommendation"},
+		"session-cli.md":         {"# Session CLI Adapter", "## Revision workflow", "## Strict writes versus tolerant reads", "## Exit codes", "## Current exclusions"},
 	}
 	for name, headings := range required {
 		content, err := os.ReadFile(filepath.Join("..", "..", "docs", name))

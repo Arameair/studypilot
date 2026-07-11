@@ -43,3 +43,8 @@ type AbandonSessionRequest struct {
 	Reason string
 }
 type ListIncompleteSessionsRequest struct{ Root, CourseRef, ModuleRef string }
+
+// InspectModuleRequest identifies a single module for tolerant, read-only
+// inspection of all its sessions. Both course and module references are
+// required.
+type InspectModuleRequest struct{ Root, CourseRef, ModuleRef string }

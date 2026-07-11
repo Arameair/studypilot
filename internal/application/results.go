@@ -79,6 +79,24 @@ type SessionInspectionResult struct {
 	Issues                []SessionIssue
 }
 
+// SessionScanIssue is a UI-neutral report of one problematic session directory
+// found during tolerant module inspection. Directory is relative to the
+// module's Sessions directory and Message carries no file contents.
+type SessionScanIssue struct {
+	Directory   string
+	Kind        string
+	Message     string
+	Recoverable bool
+}
+
+// SessionScanResult is the tolerant, read-only view of a module's sessions:
+// healthy summaries alongside per-directory issues. Discovering issues is a
+// successful inspection, not a command failure.
+type SessionScanResult struct {
+	Sessions []SessionSummary
+	Issues   []SessionScanIssue
+}
+
 func planResult(plan filesystem.Plan) PlanResult {
 	operations := make([]PlannedOperation, len(plan.Operations))
 	for i, operation := range plan.Operations {
