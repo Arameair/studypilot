@@ -25,21 +25,26 @@ This initial repository defines those design invariants but does not enforce
 them. Vault creation, publication checks, privacy enforcement, and
 synchronization are not implemented.
 
-## Build and test
+## Build, test, and inspect the plan
 
 ```sh
 make build
 make test
+./bin/studypilot version
+./bin/studypilot init --dry-run
+./bin/studypilot init --dry-run --root /custom/path
 ```
 
-The current executable is only a placeholder.
+The dry-run command prints the deterministic initialization plan and performs
+no filesystem writes. Real initialization is not enabled yet. The default
+future workspace location is `~/Documents/StudyPilot`.
 
 ## Not included
 
-This skeleton does not implement `init`, `doctor`, `version`, audio capture,
-Whisper transcription, SQLite, Git or GitHub automation, publication
-automation, synchronization, a web UI, tray integration, Obsidian plugins,
-Dataview, learning sessions, transcription processing, assessment tracking, or
+This milestone does not implement real `init`, `doctor`, audio capture, Whisper
+transcription, SQLite, Git or GitHub automation, publication automation,
+synchronization, a web UI, tray integration, Obsidian plugins, Dataview,
+learning sessions, transcription processing, assessment tracking, or
 knowledge-gap tracking.
 
 See [the architecture](docs/architecture.md) and
