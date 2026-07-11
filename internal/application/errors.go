@@ -72,17 +72,20 @@ func Classify(err error) ErrorKind {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return ErrorCancelled
-	case errors.Is(err, course.ErrInvalidName), errors.Is(err, course.ErrInvalidModuleNumber):
+	case errors.Is(err, course.ErrInvalidName), errors.Is(err, course.ErrInvalidModuleNumber),
+		errors.Is(err, filesystem.ErrInvalidMutation):
 		return ErrorInvalidInput
 	case errors.Is(err, course.ErrCollision):
 		return ErrorCollision
 	case errors.Is(err, course.ErrAmbiguous):
 		return ErrorAmbiguous
-	case errors.Is(err, course.ErrMissingCourse), errors.Is(err, course.ErrMissingPrivateVault):
+	case errors.Is(err, course.ErrMissingCourse), errors.Is(err, course.ErrMissingPrivateVault),
+		errors.Is(err, filesystem.ErrTargetNotFound):
 		return ErrorNotFound
-	case errors.Is(err, course.ErrUnmanagedDirectory), errors.Is(err, course.ErrMalformedMetadata):
+	case errors.Is(err, course.ErrUnmanagedDirectory), errors.Is(err, course.ErrMalformedMetadata),
+		errors.Is(err, filesystem.ErrUnmanagedTarget), errors.Is(err, filesystem.ErrStateMismatch):
 		return ErrorConflict
-	case errors.Is(err, filesystem.ErrUnsafePath):
+	case errors.Is(err, filesystem.ErrUnsafePath), errors.Is(err, filesystem.ErrUnauthorized):
 		return ErrorUnsafe
 	default:
 		return ErrorInternal

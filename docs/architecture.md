@@ -95,20 +95,27 @@ their own concerns (the CLI maps `invalid_input` to exit code 2 and every other
 failure to 1) without inspecting message text. Application error messages are
 fixed operation phrases and never embed file contents or secrets.
 
-## Deferred operational-mutation authority
+## Authority-checked operational mutation
 
-Course and module creation use immutable **creation** plans: the safe executor
-only creates paths and never overwrites differing user data. StudyPilot has no
-mechanism to safely *update* managed state in place. That gap is intentional for
-now.
+Creation plans and mutation requests are deliberately separate. Creation plans
+publish new paths without overwriting differing data. Mutation requests replace
+one existing, explicitly allowlisted StudyPilot metadata file and carry an
+opaque authority bound to a validated workspace, scope, and exact root.
 
-Future operational state changes — for example session lifecycle transitions —
-require an authority-checked, atomic update mechanism that revalidates workspace
-authority before writing, mirroring the guarantees of the creation executor.
-Session and other stateful code must route through that mechanism rather than
-introducing an independent, unchecked persistence path. The update design will
-be specified after the UI-neutral runtime/status contracts are defined, so it is
-not built here.
+The mutation executor independently revalidates authority and every path
+component, rejects links and non-regular targets, then compares the current
+SHA-256 hash and size with the caller's expected state. It writes a restrictive
+temporary file in the target directory, synchronizes it, rechecks target safety
+and state, atomically renames it over the target, and synchronizes the containing
+directory. Stage-aware errors say whether replacement occurred, and read-only
+inspection supports reconciliation after a durability error.
+
+Per-path locks ensure two goroutines in one process cannot both succeed from the
+same expected state. Separate processes are not locked; the last revalidation
+narrows that race but cannot eliminate it. Stronger cross-process coordination
+is a remaining operational requirement. Future session code must use this
+primitive instead of writing state directly. See
+[atomic-mutation.md](atomic-mutation.md).
 
 ## Runtime state contracts
 
