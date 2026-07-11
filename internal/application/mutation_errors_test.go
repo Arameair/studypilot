@@ -25,11 +25,13 @@ func TestClassifyMutationErrors(t *testing.T) {
 		{"io", errors.New("synthetic I/O failure"), ErrorInternal},
 		{"wrapped mutation", &filesystem.MutationError{Stage: filesystem.MutationStageComparison, Cause: filesystem.ErrStateMismatch}, ErrorConflict},
 		{"invalid session", session.ErrInvalidMetadata, ErrorInvalidInput},
-		{"invalid session transition", session.ErrInvalidTransition, ErrorInvalidInput},
+		{"invalid session transition", session.ErrInvalidTransition, ErrorConflict},
 		{"session missing", session.ErrSessionNotFound, ErrorNotFound},
 		{"session conflict", session.ErrSessionConflict, ErrorConflict},
 		{"duplicate session", session.ErrDuplicateNumber, ErrorConflict},
 		{"malformed session", session.ErrMalformedState, ErrorConflict},
+		{"ambiguous session", session.ErrAmbiguousSession, ErrorAmbiguous},
+		{"invalid lifecycle request", ErrInvalidSessionRequest, ErrorInvalidInput},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

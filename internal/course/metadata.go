@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -103,6 +104,31 @@ func FindModule(course CourseRecord, query string) (ModuleRecord, error) {
 		return ModuleRecord{}, fmt.Errorf("%w: module query %q", ErrAmbiguous, query)
 	}
 	return matches[0], nil
+}
+
+// ListCourses returns metadata-valid courses in stable immutable-ID order.
+func ListCourses(paths workspace.Paths) ([]CourseRecord, error) {
+	records, err := scanCourses(paths)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].Metadata.ID < records[j].Metadata.ID })
+	return records, nil
+}
+
+// ListModules returns metadata-valid modules by number and immutable ID.
+func ListModules(parent CourseRecord) ([]ModuleRecord, error) {
+	records, err := scanModules(parent)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Metadata.Number != records[j].Metadata.Number {
+			return records[i].Metadata.Number < records[j].Metadata.Number
+		}
+		return records[i].Metadata.ID < records[j].Metadata.ID
+	})
+	return records, nil
 }
 
 func scanCourses(paths workspace.Paths) ([]CourseRecord, error) {

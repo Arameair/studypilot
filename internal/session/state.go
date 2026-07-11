@@ -22,6 +22,7 @@ var (
 	ErrInvalidTransition = errors.New("invalid session transition")
 	ErrMalformedState    = errors.New("malformed session state")
 	ErrIdentityMismatch  = errors.New("session identity mismatch")
+	ErrAmbiguousSession  = errors.New("ambiguous session reference")
 )
 
 type Metadata struct {

@@ -64,7 +64,8 @@ as issues; unrelated regular files are ignored.
 
 ## Current exclusions and next step
 
-There are no session application use cases, CLI commands, recording, media
+Lifecycle orchestration now exists in `internal/application`; interfaces should
+not call the repository directly. There are no CLI commands, recording, media
 segments, Whisper, transcription execution, Markdown templates, GUI, tray, or
-background workers. The next safe milestone is Phase 10: session lifecycle
-application services over this repository.
+background workers. The next safe milestone is a thin session CLI adapter and
+workflow inspection.

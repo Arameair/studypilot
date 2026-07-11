@@ -177,3 +177,16 @@ authority. Runtime transition validation remains in `internal/runtime` and is
 enforced before persistence. Discovery and inspection are read-only and never
 repair malformed sessions automatically. See
 [session-repository.md](session-repository.md).
+
+## Session lifecycle application services
+
+`internal/application` is the supported orchestration boundary for creating,
+starting, interrupting, recovering, resuming, completing, abandoning, listing,
+and inspecting sessions. It owns request validation, reference resolution,
+explicit workflow intent, and safe result shaping while delegating identity,
+persistence, transition validation, and filesystem authority.
+
+Repositories are cached per workspace in a mutex-protected service map so
+concurrent calls share in-process mutation locks. UI adapters never receive a
+repository or filesystem authority. See
+[session-lifecycle.md](session-lifecycle.md).

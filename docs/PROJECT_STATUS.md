@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-The Session Operational Repository follows the committed schema-versioning and
-safe-migration milestone. No SHA is hardcoded here.
+Session Lifecycle Application Services follows the committed session
+operational repository milestone. No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -14,6 +14,8 @@ safe-migration milestone. No SHA is hardcoded here.
 - Pure migration planning and private metadata backup/application
 - Immutable session identity, authoritative runtime persistence, revisioned
   atomic updates, inspection, and incomplete-session discovery
+- UI-neutral create/start/interrupt/recover/resume/complete/abandon/get/list/
+  inspect application use cases
 
 ## Package Map
 
@@ -24,7 +26,7 @@ status contracts; `schema` owns documents; `migration` owns upgrades.
 
 ## Known Limitations
 
-No session application lifecycle, capture, transcription, desktop UI, public migration
+No session CLI, capture, transcription, desktop UI, public migration
 application, rollback command, or cross-process mutation lock exists. History is
 stored as immutable records rather than shared JSONL.
 
@@ -35,8 +37,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Build Phase 10 session lifecycle application services over the repository. Do
-not restore the stash automatically.
+Add a thin session CLI adapter and workflow inspection over the application
+service. Do not restore the stash automatically.
 
 ## Verification
 

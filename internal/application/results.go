@@ -1,6 +1,9 @@
 package application
 
-import "github.com/Arameair/studypilot/internal/filesystem"
+import (
+	"github.com/Arameair/studypilot/internal/filesystem"
+	studyruntime "github.com/Arameair/studypilot/internal/runtime"
+)
 
 // Plan operation kinds, mirrored as stable strings so adapters can render a
 // dry run without importing the filesystem package.
@@ -48,6 +51,32 @@ type ExecutionResult struct {
 	Skipped   int
 	Conflicts int
 	Outcomes  []PathOutcome
+}
+
+type SessionResult struct {
+	ID, CourseID, ModuleID string
+	Number                 int
+	Title, DirectoryName   string
+	Revision               uint64
+	Snapshot               studyruntime.Snapshot
+	DurabilityWarning      bool
+}
+
+type SessionSummary struct {
+	ID, CourseID, ModuleID string
+	ModuleNumber, Number   int
+	Title                  string
+	SessionStatus          studyruntime.SessionStatus
+	CaptureStatus          studyruntime.CaptureStatus
+	Revision               uint64
+}
+
+type SessionIssue struct{ Code, Message string }
+type SessionInspectionResult struct {
+	Session               SessionSummary
+	RecoveryState         string
+	Recoverable, Terminal bool
+	Issues                []SessionIssue
 }
 
 func planResult(plan filesystem.Plan) PlanResult {

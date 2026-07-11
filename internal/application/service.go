@@ -5,20 +5,20 @@
 // and errors. It never prints, never reads command-line flags, and never calls
 // os.Exit; those concerns belong to the calling adapter.
 //
-// A Service holds only immutable dependencies, so independent calls on the same
-// Service are safe for concurrent use as long as the injected Now and
-// GenerateID functions are themselves safe for concurrent use (the production
-// defaults are).
+// A Service holds immutable dependencies and a mutex-protected repository cache,
+// so calls sharing one workspace also share its in-process mutation locks.
 package application
 
 import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
+	"github.com/Arameair/studypilot/internal/session"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
@@ -26,14 +26,18 @@ import (
 // required; production wiring supplies time.Now and course.DefaultIDGenerator,
 // while tests supply fixed clocks and deterministic or failing ID generators.
 type Dependencies struct {
-	Now        func() time.Time
-	GenerateID course.IDGenerator
+	Now                 func() time.Time
+	GenerateID          course.IDGenerator
+	SessionRepositories SessionRepositoryFactory
 }
 
 // Service exposes StudyPilot's shared application use cases.
 type Service struct {
-	now        func() time.Time
-	generateID course.IDGenerator
+	now                 func() time.Time
+	generateID          course.IDGenerator
+	sessionRepositories SessionRepositoryFactory
+	sessionMu           sync.Mutex
+	sessionByRoot       map[string]SessionRepository
 }
 
 // NewService constructs a Service, rejecting missing required dependencies.
@@ -44,13 +48,21 @@ func NewService(deps Dependencies) (*Service, error) {
 	if deps.GenerateID == nil {
 		return nil, errors.New("application: GenerateID dependency is required")
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID}, nil
+	factory := deps.SessionRepositories
+	if factory == nil {
+		factory = defaultSessionRepositoryFactory
+	}
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository)}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall
 // clock and StudyPilot's secure course/module ID generator.
 func NewDefaultService() *Service {
-	return &Service{now: time.Now, generateID: course.DefaultIDGenerator}
+	return &Service{now: time.Now, generateID: course.DefaultIDGenerator, sessionRepositories: defaultSessionRepositoryFactory, sessionByRoot: make(map[string]SessionRepository)}
+}
+
+func defaultSessionRepositoryFactory(paths workspace.Paths, clock session.Clock, generate session.IDGenerator) (SessionRepository, error) {
+	return session.NewRepository(paths, clock, generate)
 }
 
 func resolvePaths(root string) (workspace.Paths, error) {

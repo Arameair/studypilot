@@ -22,3 +22,24 @@ type ModuleCreateRequest struct {
 	Number    int
 	Name      string
 }
+
+type CreateSessionRequest struct {
+	Root, CourseRef, ModuleRef, Title string
+	IdempotencyKey                    string
+}
+
+type SessionReferenceRequest struct{ Root, CourseRef, ModuleRef, SessionRef string }
+type UpdateSessionRequest struct {
+	Root, CourseRef, ModuleRef, SessionRef string
+	ExpectedRevision                       uint64
+}
+type InterruptSessionRequest struct {
+	UpdateSessionRequest
+	Reason string
+}
+type CompleteSessionRequest struct{ UpdateSessionRequest }
+type AbandonSessionRequest struct {
+	UpdateSessionRequest
+	Reason string
+}
+type ListIncompleteSessionsRequest struct{ Root, CourseRef, ModuleRef string }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,11 +69,17 @@ type createSpec struct {
 	metadata                  *Metadata
 	courseID, moduleID, title string
 	snapshot                  *studyruntime.Snapshot
+	requestedID               string
 }
 
 // Create allocates immutable identity and the next module-local number.
 func (r *Repository) Create(ctx context.Context, courseID, moduleID, title string, snapshot *studyruntime.Snapshot) (Record, error) {
 	return r.create(ctx, createSpec{courseID: courseID, moduleID: moduleID, title: title, snapshot: snapshot})
+}
+
+// CreateWithID allocates a number while using a caller-provided immutable ID.
+func (r *Repository) CreateWithID(ctx context.Context, courseID, moduleID, title, id string, snapshot *studyruntime.Snapshot) (Record, error) {
+	return r.create(ctx, createSpec{courseID: courseID, moduleID: moduleID, title: title, requestedID: id, snapshot: snapshot})
 }
 
 // CreateWithMetadata supports idempotent retries with a previously allocated identity.
@@ -129,6 +136,16 @@ func (r *Repository) create(ctx context.Context, spec createSpec) (Record, error
 			}
 		}
 	} else {
+		if spec.requestedID != "" {
+			for _, found := range existing {
+				if found.ID == spec.requestedID {
+					if found.DisplayName != strings.TrimSpace(spec.title) {
+						return Record{}, ErrSessionConflict
+					}
+					return r.Load(ctx, filepath.Join(sessionsRoot, found.DirectoryName))
+				}
+			}
+		}
 		number, err := nextNumber(existing)
 		if err != nil {
 			return Record{}, err
@@ -137,9 +154,12 @@ func (r *Repository) create(ctx context.Context, spec createSpec) (Record, error
 		if err != nil {
 			return Record{}, err
 		}
-		id, err := r.generateID()
-		if err != nil {
-			return Record{}, err
+		id := spec.requestedID
+		if id == "" {
+			id, err = r.generateID()
+			if err != nil {
+				return Record{}, err
+			}
 		}
 		metadata = Metadata{SchemaVersion: MetadataSchemaVersion, ID: id, CourseID: parentCourse.Metadata.ID, ModuleID: parentModule.Metadata.ID, Number: number, DisplayName: strings.TrimSpace(spec.title), Slug: slug, DirectoryName: directory, CreatedAt: r.clock().UTC()}
 		if err := metadata.Validate(parentCourse.Metadata.ID, parentModule.Metadata.ID, directory); err != nil {
@@ -236,6 +256,41 @@ func (r *Repository) Load(ctx context.Context, sessionRoot string) (Record, erro
 		return Record{}, err
 	}
 	return Record{Root: filepath.Clean(sessionRoot), Metadata: metadata, Runtime: runtimeState, MetadataHash: metadataFile.SHA256, RuntimeHash: runtimeFile.SHA256, runtimeExpected: runtimeFile.ExpectedState()}, nil
+}
+
+// Find resolves a session by immutable ID, exact title, slug, or number within
+// one immutable course/module context.
+func (r *Repository) Find(ctx context.Context, courseID, moduleID, reference string) (Record, error) {
+	root, _, err := r.Locate(ctx, courseID, moduleID, reference)
+	if err != nil {
+		return Record{}, err
+	}
+	return r.Load(ctx, root)
+}
+
+// Locate resolves metadata without requiring a valid runtime file.
+func (r *Repository) Locate(ctx context.Context, courseID, moduleID, reference string) (string, Metadata, error) {
+	parentCourse, parentModule, err := r.resolveModule(courseID, moduleID)
+	if err != nil {
+		return "", Metadata{}, err
+	}
+	metadata, err := r.scanMetadata(ctx, filepath.Join(parentModule.Path, "Sessions"), parentModule.Path, parentCourse.Metadata.ID, parentModule.Metadata.ID)
+	if err != nil {
+		return "", Metadata{}, err
+	}
+	var matches []Metadata
+	for _, candidate := range metadata {
+		if reference == candidate.ID || reference == candidate.DisplayName || reference == candidate.Slug || reference == strconv.Itoa(candidate.Number) {
+			matches = append(matches, candidate)
+		}
+	}
+	if len(matches) == 0 {
+		return "", Metadata{}, ErrSessionNotFound
+	}
+	if len(matches) != 1 {
+		return "", Metadata{}, ErrAmbiguousSession
+	}
+	return filepath.Join(parentModule.Path, "Sessions", matches[0].DirectoryName), matches[0], nil
 }
 
 type RuntimeUpdate struct {

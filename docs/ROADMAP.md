@@ -28,8 +28,11 @@ Versioned contracts, preserving edits, planning, backups, and history.
 Immutable identity, authoritative runtime state, atomic revisions, recovery,
 and incomplete discovery.
 
-## Phase 10 — Session Lifecycle (future)
-Explicit transitions and recovery.
+## Phase 10 — Session Lifecycle (complete)
+UI-neutral explicit transitions, recovery, concurrency, listing, and inspection.
+
+## Next Milestone — Session CLI Adapter (future)
+Thin commands and workflow inspection over application services; no recording.
 
 ## Phase 11 — Capture Segments and Recovery (future)
 Numbered segments and crash reconciliation.
