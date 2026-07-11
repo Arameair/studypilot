@@ -109,3 +109,17 @@ Session and other stateful code must route through that mechanism rather than
 introducing an independent, unchecked persistence path. The update design will
 be specified after the UI-neutral runtime/status contracts are defined, so it is
 not built here.
+
+## Runtime state contracts
+
+`internal/runtime` defines schema-versioned, UI-neutral snapshots for future
+CLI, tray, graphical, recovery, capture, and transcription consumers. Session,
+capture, transcription, filesystem, and publication states are independent. A
+capture stop or failure therefore never completes a learning session; session
+completion remains an explicit user workflow.
+
+Snapshots provide validated state and pure control-availability helpers, not
+runtime behavior or persistence. Future application services will safely mutate
+and persist these contracts. Recording is modeled as numbered segment summaries
+so pause can finalize one segment and resume can begin another without replacing
+completed media. See [runtime-state.md](runtime-state.md).
