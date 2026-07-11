@@ -130,3 +130,36 @@ runtime behavior or persistence. Future application services will safely mutate
 and persist these contracts. Recording is modeled as numbered segment summaries
 so pause can finalize one segment and resume can begin another without replacing
 completed media. See [runtime-state.md](runtime-state.md).
+
+## Schema evolution and migration
+
+`internal/schema` defines versioned document types, managed frontmatter keys,
+and explicitly marked Markdown regions. Unknown frontmatter and bytes outside
+managed regions remain user-owned. Raw transcripts and media are immutable
+migration inputs.
+
+`internal/migration` creates deterministic, content-free plans before writing.
+It uses automatic, review, and manual safety classes, follows sequential
+versions, and rejects future versions. Private JSON application creates
+restrictive backups and history records, then uses the authority-checked atomic
+mutation executor. Public visible changes require review; private/session
+material is never accepted as public output. See
+[schema-migrations.md](schema-migrations.md).
+
+Template changes become targeted schema or repair rules, not whole-note
+regeneration. User-created headings and unmarked content remain untouched.
+
+## Repository layout
+
+Executable adapters live under `cmd/`; focused packages live under
+`internal/application`, `course`, `filesystem`, `migration`, `runtime`,
+`schema`, and `workspace`. Future capabilities receive focused packages, and
+desktop adapters belong under `cmd/studypilot-desktop` and `ui/desktop`.
+Generic dumping-ground packages are prohibited.
+
+## Milestone continuity rule
+
+Every milestone must finish implementation and tests, update architecture,
+update `PROJECT_STATUS.md`, mark `ROADMAP.md`, and leave
+`DEVELOPMENT_HANDOFF.md` describing the next safe action. A milestone is
+incomplete when any continuity artifact is stale.
