@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Arameair/studypilot/internal/workspace"
 )
@@ -28,7 +29,8 @@ func TestHelp(t *testing.T) {
 			if code != 0 {
 				t.Errorf("run() code = %d, want 0", code)
 			}
-			if !strings.Contains(stdout, "Usage:") || !strings.Contains(stdout, "studypilot init --dry-run") {
+			if !strings.Contains(stdout, "Usage:") || !strings.Contains(stdout, "studypilot init [--dry-run]") ||
+				!strings.Contains(stdout, "studypilot course create") || !strings.Contains(stdout, "studypilot module create") {
 				t.Errorf("stdout does not contain usage: %q", stdout)
 			}
 			if stderr != "" {
@@ -300,6 +302,125 @@ func TestDefaultRealInitializationUsesControlledHome(t *testing.T) {
 	assertContractTree(t, filepath.Join(root, "IT-Knowledge-Portfolio"), workspace.PublicPortfolioContract())
 }
 
+func TestCourseCreateAndDryRun(t *testing.T) {
+	setFixedClock(t)
+	tests := []struct {
+		name   string
+		dryRun bool
+	}{
+		{name: "create"},
+		{name: "dry run", dryRun: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "StudyPilot")
+			initializeForCLI(t, root)
+			args := []string{"course", "create", "--name=TCM Practical Help Desk", "--root", root}
+			if test.dryRun {
+				args = append(args, "--dry-run")
+			}
+			code, stdout, stderr := runForTest(args)
+			if code != 0 {
+				t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
+			}
+			courseRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk")
+			if test.dryRun {
+				if !strings.Contains(stdout, "CREATE DIRECTORY") || !strings.Contains(stdout, "Dry run complete: 7 operations planned") {
+					t.Errorf("dry-run stdout = %q", stdout)
+				}
+				assertPathDoesNotExist(t, courseRoot)
+				return
+			}
+			if stderr != "" || !strings.Contains(stdout, "Course creation complete:") || !strings.Contains(stdout, "Created: 7") {
+				t.Errorf("stdout/stderr = %q / %q", stdout, stderr)
+			}
+			overview, err := os.ReadFile(filepath.Join(courseRoot, "Course Overview.md"))
+			if err != nil {
+				t.Fatalf("read course overview: %v", err)
+			}
+			if !strings.Contains(string(overview), "created: 2026-07-11") {
+				t.Errorf("course overview date is not controlled: %q", overview)
+			}
+		})
+	}
+}
+
+func TestModuleCreateAndDryRun(t *testing.T) {
+	setFixedClock(t)
+	tests := []struct {
+		name   string
+		dryRun bool
+	}{
+		{name: "create"},
+		{name: "dry run", dryRun: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "StudyPilot")
+			initializeForCLI(t, root)
+			createCourseForCLI(t, root)
+			args := []string{
+				"module", "create", "--course", "TCM Practical Help Desk",
+				"--number=3", "--name", "Windows Services", "--root=" + root,
+			}
+			if test.dryRun {
+				args = append(args, "--dry-run")
+			}
+			code, stdout, stderr := runForTest(args)
+			if code != 0 {
+				t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
+			}
+			moduleRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk", "Modules", "03 - Windows Services")
+			if test.dryRun {
+				if !strings.Contains(stdout, "Dry run complete: 10 operations planned") {
+					t.Errorf("dry-run stdout = %q", stdout)
+				}
+				assertPathDoesNotExist(t, moduleRoot)
+				return
+			}
+			if stderr != "" || !strings.Contains(stdout, "Module creation complete:") || !strings.Contains(stdout, "Created: 10") {
+				t.Errorf("stdout/stderr = %q / %q", stdout, stderr)
+			}
+			for _, relative := range []string{"Sessions", "Notes", "Transcripts", filepath.Join("Assets", "Screenshots"), filepath.Join("Assets", "Audio"), filepath.Join("Assets", "Video"), filepath.Join("Assets", "Documents")} {
+				if info, err := os.Stat(filepath.Join(moduleRoot, relative)); err != nil || !info.IsDir() {
+					t.Errorf("module directory %q missing: %v", relative, err)
+				}
+			}
+		})
+	}
+}
+
+func TestModuleCreateRequiresCourse(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "StudyPilot")
+	initializeForCLI(t, root)
+	code, _, stderr := runForTest([]string{"module", "create", "--course", "Missing", "--number", "1", "--name", "Intro", "--root", root})
+	if code != 1 {
+		t.Errorf("run() code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "construct module plan") || !strings.Contains(stderr, "course is unavailable") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestCourseConflictExitCode(t *testing.T) {
+	setFixedClock(t)
+	root := filepath.Join(t.TempDir(), "StudyPilot")
+	initializeForCLI(t, root)
+	createCourseForCLI(t, root)
+	overview := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk", "Course Overview.md")
+	if err := os.WriteFile(overview, []byte("preserve"), 0o640); err != nil {
+		t.Fatalf("replace test overview: %v", err)
+	}
+	code, _, stderr := runForTest([]string{"course", "create", "--name", "TCM Practical Help Desk", "--root", root})
+	if code != 1 || !strings.Contains(stderr, "CONFLICT") {
+		t.Errorf("code/stderr = %d / %q", code, stderr)
+	}
+	contents, err := os.ReadFile(overview)
+	if err != nil || string(contents) != "preserve" {
+		t.Errorf("conflicting overview changed: %q / %v", contents, err)
+	}
+}
+
 func TestInvalidUsage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -310,6 +431,15 @@ func TestInvalidUsage(t *testing.T) {
 		{name: "missing root value", args: []string{"init", "--dry-run", "--root"}},
 		{name: "duplicate root", args: []string{"init", "--dry-run", "--root", "/tmp/one", "--root=/tmp/two"}},
 		{name: "duplicate dry run", args: []string{"init", "--dry-run", "--dry-run"}},
+		{name: "course missing name", args: []string{"course", "create"}},
+		{name: "course duplicate name", args: []string{"course", "create", "--name", "One", "--name", "Two"}},
+		{name: "course unknown flag", args: []string{"course", "create", "--name", "One", "--unknown"}},
+		{name: "module missing course", args: []string{"module", "create", "--number", "1", "--name", "One"}},
+		{name: "module missing number", args: []string{"module", "create", "--course", "Course", "--name", "One"}},
+		{name: "module invalid number", args: []string{"module", "create", "--course", "Course", "--number", "0", "--name", "One"}},
+		{name: "module noninteger number", args: []string{"module", "create", "--course", "Course", "--number", "nope", "--name", "One"}},
+		{name: "module duplicate number", args: []string{"module", "create", "--course", "Course", "--number", "1", "--number", "2", "--name", "One"}},
+		{name: "module unexpected argument", args: []string{"module", "create", "--course", "Course", "--number", "1", "--name", "One", "extra"}},
 		{name: "unexpected positional argument", args: []string{"init", "--dry-run", "unexpected"}},
 		{name: "version argument", args: []string{"version", "unexpected"}},
 		{name: "help argument", args: []string{"help", "unexpected"}},
@@ -421,4 +551,25 @@ func stringMapsEqual(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func setFixedClock(t *testing.T) {
+	t.Helper()
+	previous := now
+	now = func() time.Time { return time.Date(2026, time.July, 11, 12, 0, 0, 0, time.UTC) }
+	t.Cleanup(func() { now = previous })
+}
+
+func initializeForCLI(t *testing.T, root string) {
+	t.Helper()
+	if code, _, stderr := runForTest([]string{"init", "--root", root}); code != 0 {
+		t.Fatalf("initialize workspace code = %d; stderr = %q", code, stderr)
+	}
+}
+
+func createCourseForCLI(t *testing.T, root string) {
+	t.Helper()
+	if code, _, stderr := runForTest([]string{"course", "create", "--name", "TCM Practical Help Desk", "--root", root}); code != 0 {
+		t.Fatalf("create course code = %d; stderr = %q", code, stderr)
+	}
 }

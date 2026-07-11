@@ -9,19 +9,23 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
 var version = "dev"
+var now = time.Now
 
 const usage = `StudyPilot
 
 Usage:
   studypilot version
-  studypilot init [--root PATH]
-  studypilot init --dry-run [--root PATH]
+  studypilot init [--dry-run] [--root PATH]
+  studypilot course create --name NAME [--dry-run] [--root PATH]
+  studypilot module create --course NAME --number NUMBER --name NAME [--dry-run] [--root PATH]
 `
 
 func main() {
@@ -49,6 +53,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "init":
 		return runInit(args[1:], stdout, stderr)
+	case "course":
+		return runCourse(args[1:], stdout, stderr)
+	case "module":
+		return runModule(args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}
@@ -85,7 +93,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	if dryRun.value {
 		return printDryRun(plan, stdout, stderr)
 	}
-	return executeInit(plan, stdout, stderr)
+	return executeCreation(plan, "Initialization", stdout, stderr)
 }
 
 func printDryRun(plan filesystem.Plan, stdout, stderr io.Writer) int {
@@ -103,7 +111,7 @@ func printDryRun(plan filesystem.Plan, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func executeInit(plan filesystem.Plan, stdout, stderr io.Writer) int {
+func executeCreation(plan filesystem.Plan, label string, stdout, stderr io.Writer) int {
 	report, executionErr := filesystem.Execute(plan)
 	for _, result := range report.Results {
 		writer := stdout
@@ -123,7 +131,7 @@ func executeInit(plan filesystem.Plan, stdout, stderr io.Writer) int {
 		}
 	}
 
-	if _, err := fmt.Fprintf(stdout, "Initialization complete:\n  Created: %d\n  Skipped: %d\n  Conflicts: %d\n",
+	if _, err := fmt.Fprintf(stdout, "%s complete:\n  Created: %d\n  Skipped: %d\n  Conflicts: %d\n", label,
 		report.CreatedCount(), report.SkippedCount(), report.ConflictCount()); err != nil {
 		return runtimeError(stderr, "write initialization summary", err)
 	}
@@ -134,6 +142,98 @@ func executeInit(plan filesystem.Plan, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func runCourse(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 || args[0] != "create" {
+		return usageError(stderr, "course requires the create subcommand")
+	}
+	flags := flag.NewFlagSet("course create", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {}
+	name := stringFlag{name: "--name"}
+	var root rootFlag
+	var dryRun boolFlag
+	flags.Var(&name, "name", "course display name")
+	flags.Var(&root, "root", "workspace root path")
+	flags.Var(&dryRun, "dry-run", "print the course plan without writing")
+	if err := flags.Parse(args[1:]); err != nil {
+		writeUsage(stderr)
+		return 2
+	}
+	if flags.NArg() != 0 {
+		return usageError(stderr, fmt.Sprintf("unexpected course argument %q", flags.Arg(0)))
+	}
+	if !name.set || strings.TrimSpace(name.value) == "" {
+		return usageError(stderr, "course create requires --name")
+	}
+
+	paths, err := resolvePaths(root)
+	if err != nil {
+		return runtimeError(stderr, "resolve workspace paths", err)
+	}
+	plan, err := course.NewCoursePlan(paths, name.value, now())
+	if err != nil {
+		if errors.Is(err, course.ErrInvalidName) {
+			return usageError(stderr, err.Error())
+		}
+		return runtimeError(stderr, "construct course plan", err)
+	}
+	if dryRun.value {
+		return printDryRun(plan, stdout, stderr)
+	}
+	return executeCreation(plan, "Course creation", stdout, stderr)
+}
+
+func runModule(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 || args[0] != "create" {
+		return usageError(stderr, "module requires the create subcommand")
+	}
+	flags := flag.NewFlagSet("module create", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {}
+	courseName := stringFlag{name: "--course"}
+	moduleName := stringFlag{name: "--name"}
+	number := intFlag{name: "--number"}
+	var root rootFlag
+	var dryRun boolFlag
+	flags.Var(&courseName, "course", "existing course display name")
+	flags.Var(&number, "number", "positive module number")
+	flags.Var(&moduleName, "name", "module display name")
+	flags.Var(&root, "root", "workspace root path")
+	flags.Var(&dryRun, "dry-run", "print the module plan without writing")
+	if err := flags.Parse(args[1:]); err != nil {
+		writeUsage(stderr)
+		return 2
+	}
+	if flags.NArg() != 0 {
+		return usageError(stderr, fmt.Sprintf("unexpected module argument %q", flags.Arg(0)))
+	}
+	if !courseName.set || strings.TrimSpace(courseName.value) == "" {
+		return usageError(stderr, "module create requires --course")
+	}
+	if !number.set || number.value <= 0 {
+		return usageError(stderr, "module create requires a positive --number")
+	}
+	if !moduleName.set || strings.TrimSpace(moduleName.value) == "" {
+		return usageError(stderr, "module create requires --name")
+	}
+
+	paths, err := resolvePaths(root)
+	if err != nil {
+		return runtimeError(stderr, "resolve workspace paths", err)
+	}
+	plan, err := course.NewModulePlan(paths, courseName.value, number.value, moduleName.value, now())
+	if err != nil {
+		if errors.Is(err, course.ErrInvalidName) || errors.Is(err, course.ErrInvalidModuleNumber) {
+			return usageError(stderr, err.Error())
+		}
+		return runtimeError(stderr, "construct module plan", err)
+	}
+	if dryRun.value {
+		return printDryRun(plan, stdout, stderr)
+	}
+	return executeCreation(plan, "Module creation", stdout, stderr)
 }
 
 func resolvePaths(root rootFlag) (workspace.Paths, error) {
@@ -177,6 +277,44 @@ func (f *rootFlag) Set(value string) error {
 		return errors.New("--root may only be specified once")
 	}
 	f.value = value
+	f.set = true
+	return nil
+}
+
+type stringFlag struct {
+	name  string
+	value string
+	set   bool
+}
+
+func (f *stringFlag) String() string { return f.value }
+
+func (f *stringFlag) Set(value string) error {
+	if f.set {
+		return fmt.Errorf("%s may only be specified once", f.name)
+	}
+	f.value = value
+	f.set = true
+	return nil
+}
+
+type intFlag struct {
+	name  string
+	value int
+	set   bool
+}
+
+func (f *intFlag) String() string { return strconv.Itoa(f.value) }
+
+func (f *intFlag) Set(value string) error {
+	if f.set {
+		return fmt.Errorf("%s may only be specified once", f.name)
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fmt.Errorf("%s must be an integer", f.name)
+	}
+	f.value = parsed
 	f.set = true
 	return nil
 }

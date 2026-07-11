@@ -124,6 +124,7 @@ func TestPlanValidateRejectsMalformedPlans(t *testing.T) {
 		plan Plan
 	}{
 		{name: "empty root", plan: mutatePlan(valid, func(plan *Plan) { plan.Root = "" })},
+		{name: "unknown scope", plan: mutatePlan(valid, func(plan *Plan) { plan.Scope = "unknown" })},
 		{name: "relative root", plan: mutatePlan(valid, func(plan *Plan) { plan.Root = "relative" })},
 		{name: "empty operations", plan: Plan{Root: paths.Root}},
 		{name: "unknown kind", plan: appendOperation(valid, Operation{Kind: "unknown", Path: filepath.Join(paths.Root, "unknown")})},

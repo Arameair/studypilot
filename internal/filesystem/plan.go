@@ -30,9 +30,20 @@ type Operation struct {
 	Content string
 }
 
+// PlanScope identifies the safety invariants required for a plan. The zero
+// value is the full workspace initialization scope for backward compatibility.
+type PlanScope string
+
+const (
+	PlanScopeWorkspace PlanScope = ""
+	PlanScopeCourse    PlanScope = "course"
+	PlanScopeModule    PlanScope = "module"
+)
+
 // Plan is an ordered collection of filesystem operations for one workspace.
 type Plan struct {
 	Root       string
+	Scope      PlanScope
 	Operations []Operation
 }
 
@@ -69,6 +80,9 @@ func NewPlan(paths workspace.Paths) (Plan, error) {
 
 // Validate checks the plan lexically without accessing the filesystem.
 func (p Plan) Validate() error {
+	if p.Scope != PlanScopeWorkspace && p.Scope != PlanScopeCourse && p.Scope != PlanScopeModule {
+		return fmt.Errorf("unknown plan scope %q", p.Scope)
+	}
 	if strings.TrimSpace(p.Root) == "" {
 		return errors.New("plan root must not be empty")
 	}
@@ -119,40 +133,46 @@ func (p Plan) Validate() error {
 		}
 		seen[path] = operation.Kind
 
-		switch path {
-		case root:
+		if path == root {
 			if operation.Kind != OperationCreateDirectory {
-				return errors.New("workspace root must be a directory operation")
+				return errors.New("plan root must be a directory operation")
 			}
 			rootFound = true
-		case privateRoot:
-			if operation.Kind != OperationCreateDirectory {
-				return errors.New("private vault root must be a directory operation")
-			}
-			privateRootFound = true
-		case portfolioRoot:
-			if operation.Kind != OperationCreateDirectory {
-				return errors.New("portfolio root must be a directory operation")
-			}
-			portfolioRootFound = true
 		}
 
-		if containsRelativeComponent(portfolioRoot, path, privateVaultName) {
-			return fmt.Errorf("private vault path %q is nested under portfolio", operation.Path)
-		}
-		if containsRelativeComponent(privateRoot, path, portfolioName) {
-			return fmt.Errorf("portfolio path %q is nested under private vault", operation.Path)
+		if p.Scope == PlanScopeWorkspace {
+			switch path {
+			case privateRoot:
+				if operation.Kind != OperationCreateDirectory {
+					return errors.New("private vault root must be a directory operation")
+				}
+				privateRootFound = true
+			case portfolioRoot:
+				if operation.Kind != OperationCreateDirectory {
+					return errors.New("portfolio root must be a directory operation")
+				}
+				portfolioRootFound = true
+			}
+
+			if containsRelativeComponent(portfolioRoot, path, privateVaultName) {
+				return fmt.Errorf("private vault path %q is nested under portfolio", operation.Path)
+			}
+			if containsRelativeComponent(privateRoot, path, portfolioName) {
+				return fmt.Errorf("portfolio path %q is nested under private vault", operation.Path)
+			}
 		}
 	}
 
 	if !rootFound {
-		return errors.New("plan is missing workspace root directory operation")
+		return errors.New("plan is missing root directory operation")
 	}
-	if !privateRootFound {
-		return errors.New("plan is missing private vault root directory operation")
-	}
-	if !portfolioRootFound {
-		return errors.New("plan is missing portfolio root directory operation")
+	if p.Scope == PlanScopeWorkspace {
+		if !privateRootFound {
+			return errors.New("plan is missing private vault root directory operation")
+		}
+		if !portfolioRootFound {
+			return errors.New("plan is missing portfolio root directory operation")
+		}
 	}
 	return nil
 }

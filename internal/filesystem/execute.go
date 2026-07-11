@@ -84,7 +84,8 @@ func Execute(plan Plan) (ExecutionReport, error) {
 		var err error
 		switch operation.Kind {
 		case OperationCreateDirectory:
-			result, err = executeDirectory(operation, filepath.Clean(operation.Path) == filepath.Clean(plan.Root))
+			workspaceRoot := plan.Scope == PlanScopeWorkspace && filepath.Clean(operation.Path) == filepath.Clean(plan.Root)
+			result, err = executeDirectory(operation, workspaceRoot)
 		case OperationCreateFile:
 			result, err = executeFile(operation)
 		}

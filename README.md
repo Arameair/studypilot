@@ -44,6 +44,26 @@ plugins. The default workspace location is `~/Documents/StudyPilot`.
 Rerunning `init` is safe when existing files are unchanged: matching paths are
 skipped. Conflicting files and directories are reported and never overwritten.
 
+## Courses and modules
+
+After initializing a workspace, create private course and module structures:
+
+```sh
+./bin/studypilot course create \
+  --name "TCM Practical Help Desk"
+
+./bin/studypilot module create \
+  --course "TCM Practical Help Desk" \
+  --number 3 \
+  --name "Windows Services"
+```
+
+StudyPilot keeps course-wide assets separate from module assets. Module asset
+directories are organized for screenshots, audio, video, and documents. All
+source-course material remains in the private learning vault; nothing is
+published to the public portfolio automatically. Asset importing and media
+capture are not implemented yet.
+
 ## Not included
 
 This milestone does not implement `doctor`, audio capture, Whisper
