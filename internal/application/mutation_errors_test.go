@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Arameair/studypilot/internal/filesystem"
+	"github.com/Arameair/studypilot/internal/session"
 )
 
 func TestClassifyMutationErrors(t *testing.T) {
@@ -23,6 +24,12 @@ func TestClassifyMutationErrors(t *testing.T) {
 		{"cancelled", context.Canceled, ErrorCancelled},
 		{"io", errors.New("synthetic I/O failure"), ErrorInternal},
 		{"wrapped mutation", &filesystem.MutationError{Stage: filesystem.MutationStageComparison, Cause: filesystem.ErrStateMismatch}, ErrorConflict},
+		{"invalid session", session.ErrInvalidMetadata, ErrorInvalidInput},
+		{"invalid session transition", session.ErrInvalidTransition, ErrorInvalidInput},
+		{"session missing", session.ErrSessionNotFound, ErrorNotFound},
+		{"session conflict", session.ErrSessionConflict, ErrorConflict},
+		{"duplicate session", session.ErrDuplicateNumber, ErrorConflict},
+		{"malformed session", session.ErrMalformedState, ErrorConflict},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

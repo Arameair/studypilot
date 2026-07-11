@@ -163,3 +163,17 @@ Every milestone must finish implementation and tests, update architecture,
 update `PROJECT_STATUS.md`, mark `ROADMAP.md`, and leave
 `DEVELOPMENT_HANDOFF.md` describing the next safe action. A milestone is
 incomplete when any continuity artifact is stale.
+
+## Session operational repository
+
+`internal/session` binds session identity to immutable course and module IDs.
+`.studypilot-session.json` is immutable identity; `.studypilot-runtime.json` is
+the only mutable operational authority. Markdown and in-memory snapshots are
+not co-equal sources.
+
+Session creation uses module-scoped filesystem plans. Updates require both the
+expected revision and content hash and use the session-scoped atomic mutation
+authority. Runtime transition validation remains in `internal/runtime` and is
+enforced before persistence. Discovery and inspection are read-only and never
+repair malformed sessions automatically. See
+[session-repository.md](session-repository.md).

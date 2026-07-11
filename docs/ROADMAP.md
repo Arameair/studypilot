@@ -24,8 +24,9 @@ Authority-bound atomic replacement.
 ## Phase 8 — Schemas and Migrations (complete)
 Versioned contracts, preserving edits, planning, backups, and history.
 
-## Phase 9 — Session Operational Repository (future)
-Persist operational state through existing safety layers.
+## Phase 9 — Session Operational Repository (complete)
+Immutable identity, authoritative runtime state, atomic revisions, recovery,
+and incomplete discovery.
 
 ## Phase 10 — Session Lifecycle (future)
 Explicit transitions and recovery.

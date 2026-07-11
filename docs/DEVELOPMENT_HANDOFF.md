@@ -20,8 +20,8 @@ dumping-ground packages.
 ## Package Responsibilities
 
 `workspace` owns vault contracts, `course` identity, `filesystem` safe writes,
-`runtime` status schemas, `schema` document ownership, `migration` upgrades, and
-`application` UI-neutral orchestration.
+`runtime` status schemas, `schema` document ownership, `migration` upgrades,
+`session` operational persistence, and `application` UI-neutral orchestration.
 
 ## Privacy Boundaries
 
@@ -42,8 +42,8 @@ real vaults.
 
 ## Current Milestone
 
-Schema contracts, safe migration foundations, and continuity documents are in
-the current working tree.
+The session operational repository is in the current working tree, built on the
+committed schema/migration foundation.
 
 ## Session Stash Warning
 
@@ -52,9 +52,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review and commit, design the session operational repository using the
-runtime schemas, schema registry, and atomic mutation executor. Review stash
-concepts without applying it.
+After review and commit, implement Phase 10 lifecycle application services over
+`internal/session`. Review stash concepts without applying it; do not restore
+the old implementation.
 
 ## Real-Vault Safety Rule
 

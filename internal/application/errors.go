@@ -6,6 +6,7 @@ import (
 
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
+	"github.com/Arameair/studypilot/internal/session"
 )
 
 // ErrorKind is a stable, UI-neutral classification of an application failure.
@@ -73,17 +74,20 @@ func Classify(err error) ErrorKind {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return ErrorCancelled
 	case errors.Is(err, course.ErrInvalidName), errors.Is(err, course.ErrInvalidModuleNumber),
-		errors.Is(err, filesystem.ErrInvalidMutation):
+		errors.Is(err, filesystem.ErrInvalidMutation), errors.Is(err, session.ErrInvalidMetadata),
+		errors.Is(err, session.ErrInvalidTransition):
 		return ErrorInvalidInput
 	case errors.Is(err, course.ErrCollision):
 		return ErrorCollision
 	case errors.Is(err, course.ErrAmbiguous):
 		return ErrorAmbiguous
 	case errors.Is(err, course.ErrMissingCourse), errors.Is(err, course.ErrMissingPrivateVault),
-		errors.Is(err, filesystem.ErrTargetNotFound):
+		errors.Is(err, filesystem.ErrTargetNotFound), errors.Is(err, session.ErrSessionNotFound):
 		return ErrorNotFound
 	case errors.Is(err, course.ErrUnmanagedDirectory), errors.Is(err, course.ErrMalformedMetadata),
-		errors.Is(err, filesystem.ErrUnmanagedTarget), errors.Is(err, filesystem.ErrStateMismatch):
+		errors.Is(err, filesystem.ErrUnmanagedTarget), errors.Is(err, filesystem.ErrStateMismatch),
+		errors.Is(err, session.ErrSessionConflict), errors.Is(err, session.ErrDuplicateNumber),
+		errors.Is(err, session.ErrMalformedState), errors.Is(err, session.ErrIdentityMismatch):
 		return ErrorConflict
 	case errors.Is(err, filesystem.ErrUnsafePath), errors.Is(err, filesystem.ErrUnauthorized):
 		return ErrorUnsafe

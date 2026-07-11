@@ -152,6 +152,11 @@ func authorityFor(paths workspace.Paths, plan Plan) (filesystem.MutationAuthorit
 		courseRoot := filepath.Dir(filepath.Dir(moduleRoot))
 		return filesystem.NewModuleMutationAuthority(paths, courseRoot, moduleRoot)
 	case schema.DocumentRuntimeState:
+		if within(paths.Private, plan.Path) {
+			sessionRoot := filepath.Dir(plan.Path)
+			moduleRoot := filepath.Dir(filepath.Dir(sessionRoot))
+			return filesystem.NewSessionMutationAuthority(paths, moduleRoot, sessionRoot)
+		}
 		return filesystem.NewWorkspaceMutationAuthority(paths)
 	default:
 		return filesystem.MutationAuthority{}, filesystem.ErrUnmanagedTarget

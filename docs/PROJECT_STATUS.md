@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-Schema Versioning, Safe Migrations, and Project Continuity follows the committed
-authority-checked atomic mutation milestone. No SHA is hardcoded here.
+The Session Operational Repository follows the committed schema-versioning and
+safe-migration milestone. No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -12,16 +12,19 @@ authority-checked atomic mutation milestone. No SHA is hardcoded here.
 - Authority-checked atomic mutation
 - Versioned document contracts and preserving Markdown edits
 - Pure migration planning and private metadata backup/application
+- Immutable session identity, authoritative runtime persistence, revisioned
+  atomic updates, inspection, and incomplete-session discovery
 
 ## Package Map
 
-`application` orchestrates; `course` owns course/module identity; `workspace`
+`application` orchestrates; `course` owns course/module identity; `session` owns
+session identity and operational persistence; `workspace`
 owns vault contracts; `filesystem` owns creation and mutation; `runtime` owns
 status contracts; `schema` owns documents; `migration` owns upgrades.
 
 ## Known Limitations
 
-No session store/lifecycle, capture, transcription, desktop UI, public migration
+No session application lifecycle, capture, transcription, desktop UI, public migration
 application, rollback command, or cross-process mutation lock exists. History is
 stored as immutable records rather than shared JSONL.
 
@@ -32,8 +35,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Design the session operational repository using schema, runtime, and mutation
-contracts. Do not restore the stash automatically.
+Build Phase 10 session lifecycle application services over the repository. Do
+not restore the stash automatically.
 
 ## Verification
 

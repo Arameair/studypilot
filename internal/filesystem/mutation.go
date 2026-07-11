@@ -3,6 +3,7 @@ package filesystem
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -168,11 +169,25 @@ func (a MutationAuthority) revalidate() error {
 			return err
 		}
 	case MutationScopeSession:
-		if !strictlyWithin(filepath.Join(a.paths.Private, "01 Courses"), a.parentRoot) ||
+		courseRoot := filepath.Dir(filepath.Dir(a.parentRoot))
+		if !strictlyWithin(filepath.Join(a.paths.Private, "01 Courses"), courseRoot) ||
+			!strictlyWithin(filepath.Join(courseRoot, "Modules"), a.parentRoot) ||
 			!strictlyWithin(filepath.Join(a.parentRoot, "Sessions"), a.allowedRoot) {
 			return ErrUnauthorized
 		}
-		if _, _, err := readRegularManaged(filepath.Join(a.parentRoot, moduleMetadataFileName)); err != nil {
+		courseContent, _, err := readRegularManaged(filepath.Join(courseRoot, courseMetadataFileName))
+		if err != nil {
+			return err
+		}
+		moduleContent, _, err := readRegularManaged(filepath.Join(a.parentRoot, moduleMetadataFileName))
+		if err != nil {
+			return err
+		}
+		sessionContent, _, err := readRegularManaged(filepath.Join(a.allowedRoot, sessionMetadataFileName))
+		if err != nil {
+			return err
+		}
+		if err := validateSessionAuthorityMetadata(courseContent, moduleContent, sessionContent, filepath.Base(courseRoot), filepath.Base(a.parentRoot), filepath.Base(a.allowedRoot)); err != nil {
 			return err
 		}
 	default:
@@ -185,6 +200,34 @@ func (a MutationAuthority) revalidate() error {
 		if _, _, err := readRegularManaged(filepath.Join(a.allowedRoot, a.marker)); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateSessionAuthorityMetadata(courseContent, moduleContent, sessionContent []byte, courseDirectory, moduleDirectory, sessionDirectory string) error {
+	var courseValue struct {
+		SchemaVersion int    `json:"schema_version"`
+		ID            string `json:"id"`
+		DirectoryName string `json:"directory_name"`
+	}
+	var moduleValue struct {
+		SchemaVersion int    `json:"schema_version"`
+		ID            string `json:"id"`
+		CourseID      string `json:"course_id"`
+		DirectoryName string `json:"directory_name"`
+	}
+	var sessionValue struct {
+		SchemaVersion int    `json:"schema_version"`
+		ID            string `json:"id"`
+		CourseID      string `json:"course_id"`
+		ModuleID      string `json:"module_id"`
+		DirectoryName string `json:"directory_name"`
+	}
+	if json.Unmarshal(courseContent, &courseValue) != nil || json.Unmarshal(moduleContent, &moduleValue) != nil || json.Unmarshal(sessionContent, &sessionValue) != nil ||
+		courseValue.SchemaVersion != 1 || courseValue.ID == "" || courseValue.DirectoryName != courseDirectory ||
+		moduleValue.SchemaVersion != 1 || moduleValue.ID == "" || moduleValue.CourseID != courseValue.ID || moduleValue.DirectoryName != moduleDirectory ||
+		sessionValue.SchemaVersion != 1 || sessionValue.ID == "" || sessionValue.CourseID != courseValue.ID || sessionValue.ModuleID != moduleValue.ID || sessionValue.DirectoryName != sessionDirectory {
+		return ErrInvalidMutation
 	}
 	return nil
 }
@@ -269,7 +312,7 @@ func (a MutationAuthority) manages(target string) bool {
 	case MutationScopeModule:
 		return name == moduleMetadataFileName
 	case MutationScopeSession:
-		return name == sessionMetadataFileName
+		return name == sessionMetadataFileName || name == runtimeMetadataFileName
 	default:
 		return false
 	}

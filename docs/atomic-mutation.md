@@ -26,7 +26,7 @@ The allowlist is exact and deny-by-default:
 - workspace: `.studypilot-runtime.json`
 - course: `.studypilot-course.json`
 - module: `.studypilot-module.json`
-- session: `.studypilot-session.json`
+- session: `.studypilot-session.json` and `.studypilot-runtime.json`
 
 Markdown, transcripts, recordings, media, notes, and arbitrary JSON are not
 managed targets. Supporting course and module metadata at this low level does

@@ -31,9 +31,9 @@ func newMutationFixture(t *testing.T) mutationFixture {
 		}
 	}
 	for path, content := range map[string]string{
-		filepath.Join(course, courseMetadataFileName):      `{"kind":"course"}`,
-		filepath.Join(module, moduleMetadataFileName):      `{"kind":"module"}`,
-		filepath.Join(session, sessionMetadataFileName):    `{"kind":"session"}`,
+		filepath.Join(course, courseMetadataFileName):      `{"schema_version":1,"id":"course-test","directory_name":"synthetic-course"}`,
+		filepath.Join(module, moduleMetadataFileName):      `{"schema_version":1,"id":"module-test","course_id":"course-test","directory_name":"module-01"}`,
+		filepath.Join(session, sessionMetadataFileName):    `{"schema_version":1,"id":"session-test","course_id":"course-test","module_id":"module-test","directory_name":"session-01"}`,
 		filepath.Join(paths.Root, runtimeMetadataFileName): `{"kind":"runtime"}`,
 	} {
 		if err := os.WriteFile(path, []byte(content), 0o640); err != nil {

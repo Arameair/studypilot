@@ -12,6 +12,7 @@ func TestProjectContinuityDocuments(t *testing.T) {
 		"PROJECT_STATUS.md":      {"# Project Status", "## Current Milestone", "## Next Approved Milestone", "## Privacy"},
 		"ROADMAP.md":             {"# Roadmap", "## Phase 8", "## Phase 9"},
 		"DEVELOPMENT_HANDOFF.md": {"# Development Handoff", "## Architecture Rules", "## Session Stash Warning", "## Next Safe Action"},
+		"session-repository.md":  {"# Session Operational Repository", "## Immutable and mutable state", "## Recovery and discovery", "## Current exclusions and next step"},
 	}
 	for name, headings := range required {
 		content, err := os.ReadFile(filepath.Join("..", "..", "docs", name))

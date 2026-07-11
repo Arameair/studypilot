@@ -14,8 +14,9 @@ manual conflicts. Targeted parsing retains original lines and newline style.
 
 ## Versions, drift, and safety
 
-Committed course and module formats remain version 1. Reserved types do not
-claim future files are persisted. Registries require sequential edges and a
+Committed course, module, session metadata, and runtime-state formats remain
+version 1. Session metadata and runtime state are now implemented; session-note
+and transcript persistence remain reserved. Registries require sequential edges and a
 complete path; downgrades and future versions are rejected. Planning separates
 current, upgrade, repairable drift, and manual conflict. Unknown user keys are
 not drift. Visible managed changes and moves require review.
