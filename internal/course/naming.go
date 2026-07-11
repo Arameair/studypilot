@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -12,52 +14,43 @@ var (
 	ErrInvalidModuleNumber = errors.New("invalid module number")
 	ErrMissingPrivateVault = errors.New("private course directory is unavailable")
 	ErrMissingCourse       = errors.New("course is unavailable")
+	ErrCollision           = errors.New("identity collision")
+	ErrAmbiguous           = errors.New("ambiguous identity")
+	ErrUnmanagedDirectory  = errors.New("unmanaged directory")
+	ErrMalformedMetadata   = errors.New("malformed metadata")
 )
 
 type normalizedName struct {
 	Display string
 	Slug    string
+	Key     string
 }
 
 func normalizeName(value string) (normalizedName, error) {
-	value = strings.TrimSpace(value)
-	if value == "" || value == "." || value == ".." ||
-		strings.Contains(value, "..") || strings.ContainsAny(value, `/\`) {
+	value = norm.NFC.String(strings.TrimSpace(value))
+	if value == "" || value == "." || value == ".." || strings.ContainsAny(value, `/\`) {
 		return normalizedName{}, ErrInvalidName
 	}
-
-	var display strings.Builder
-	lastSpace := false
 	for _, r := range value {
-		if unicode.IsSpace(r) {
-			if display.Len() != 0 && !lastSpace {
-				display.WriteByte(' ')
-				lastSpace = true
-			}
-			continue
-		}
 		if unicode.IsControl(r) || strings.ContainsRune(`<>:"|?*#`, r) {
-			continue
+			return normalizedName{}, ErrInvalidName
 		}
-		display.WriteRune(r)
-		lastSpace = false
 	}
-	displayName := strings.Trim(strings.TrimSpace(display.String()), ".")
-	if displayName == "" || displayName == "." || displayName == ".." {
+	display := strings.Join(strings.Fields(value), " ")
+	if display == "" {
 		return normalizedName{}, ErrInvalidName
 	}
-
-	slug := slugify(displayName)
-	if slug == "" || slug == "." || slug == ".." {
+	slug := slugify(display)
+	if slug == "" {
 		return normalizedName{}, ErrInvalidName
 	}
-	return normalizedName{Display: displayName, Slug: slug}, nil
+	return normalizedName{Display: display, Slug: slug, Key: strings.ToLower(display)}, nil
 }
 
 func slugify(value string) string {
 	var slug strings.Builder
 	hyphenPending := false
-	for _, r := range strings.ToLower(value) {
+	for _, r := range strings.ToLower(norm.NFC.String(value)) {
 		switch {
 		case unicode.IsLetter(r) || unicode.IsDigit(r):
 			if hyphenPending && slug.Len() != 0 {
@@ -65,7 +58,7 @@ func slugify(value string) string {
 			}
 			slug.WriteRune(r)
 			hyphenPending = false
-		case unicode.IsSpace(r) || r == '_' || r == '-':
+		case unicode.IsSpace(r) || r == '_' || r == '-' || unicode.IsPunct(r) || unicode.IsSymbol(r):
 			hyphenPending = slug.Len() != 0
 		}
 	}

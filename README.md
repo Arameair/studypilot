@@ -64,6 +64,22 @@ source-course material remains in the private learning vault; nothing is
 published to the public portfolio automatically. Asset importing and media
 capture are not implemented yet.
 
+Each managed course and module has an immutable generated ID stored in
+`.studypilot-course.json` or `.studypilot-module.json`. These versioned JSON
+files are the authoritative operational identity records; Markdown overviews
+remain human-readable documentation. Display names, slugs, and directory names
+are not identity and may be supported by explicit rename workflows later.
+Display-name comparison uses Unicode NFC normalization followed by Unicode
+lowercasing for collision detection; lookup remains exact by immutable ID,
+display name, or slug.
+
+Module numbers are positive, unique within a course, and are the authoritative
+module sort key. Repeating a create command on a later date preserves the
+original ID and timestamps. Unmanaged directories and identity collisions are
+reported rather than adopted or overwritten. Scoped course and module plans
+are restricted to validated boundaries beneath the private vault and cannot
+authorize public-portfolio writes.
+
 ## Not included
 
 This milestone does not implement `doctor`, audio capture, Whisper

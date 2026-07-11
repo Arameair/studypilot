@@ -1,6 +1,7 @@
 package course
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -10,69 +11,104 @@ import (
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
-// NewModulePlan returns a deterministic module plan beneath an existing course.
-func NewModulePlan(paths workspace.Paths, courseName string, moduleNumber int, moduleName string, date time.Time) (studyfs.Plan, error) {
-	if err := paths.Validate(); err != nil {
-		return studyfs.Plan{}, fmt.Errorf("validate workspace paths: %w", err)
-	}
-	course, err := normalizeName(courseName)
-	if err != nil {
-		return studyfs.Plan{}, fmt.Errorf("%w: course name", err)
-	}
-	module, err := normalizeName(moduleName)
-	if err != nil {
-		return studyfs.Plan{}, fmt.Errorf("%w: module name", err)
-	}
+func NewModulePlan(paths workspace.Paths, courseQuery string, moduleNumber int, moduleName string, date time.Time) (studyfs.Plan, error) {
+	return NewModulePlanWithID(paths, courseQuery, moduleNumber, moduleName, date, DefaultIDGenerator)
+}
+
+func NewModulePlanWithID(paths workspace.Paths, courseQuery string, moduleNumber int, moduleName string, date time.Time, generate IDGenerator) (studyfs.Plan, error) {
 	if moduleNumber <= 0 {
 		return studyfs.Plan{}, ErrInvalidModuleNumber
 	}
-
-	courseRoot := filepath.Join(paths.Private, coursesDirectory, course.Display)
-	modulesRoot := filepath.Join(courseRoot, "Modules")
-	if err := requireDirectory(courseRoot, ErrMissingCourse); err != nil {
+	if generate == nil {
+		return studyfs.Plan{}, errors.New("ID generator is required")
+	}
+	requested, err := normalizeName(moduleName)
+	if err != nil {
+		return studyfs.Plan{}, fmt.Errorf("%w: module name", err)
+	}
+	course, err := FindCourse(paths, courseQuery)
+	if err != nil {
 		return studyfs.Plan{}, err
 	}
-	if err := requireDirectory(modulesRoot, ErrMissingCourse); err != nil {
+	records, err := scanModules(course)
+	if err != nil {
 		return studyfs.Plan{}, err
 	}
+	var existing *ModuleRecord
+	ids := make(map[string]bool)
+	for index := range records {
+		record := records[index]
+		if ids[record.Metadata.ID] {
+			return studyfs.Plan{}, fmt.Errorf("%w: duplicate module ID %s", ErrAmbiguous, record.Metadata.ID)
+		}
+		ids[record.Metadata.ID] = true
+		normalized, _ := normalizeName(record.Metadata.DisplayName)
+		if record.Metadata.Number == moduleNumber && record.Metadata.DisplayName == requested.Display && record.Metadata.Slug == requested.Slug {
+			existing = &records[index]
+			continue
+		}
+		if record.Metadata.Number == moduleNumber {
+			return studyfs.Plan{}, fmt.Errorf("%w: module number %d already exists", ErrCollision, moduleNumber)
+		}
+		if record.Metadata.Slug == requested.Slug || normalized.Key == requested.Key {
+			return studyfs.Plan{}, fmt.Errorf("%w: module name or slug already exists", ErrCollision)
+		}
+	}
 
-	number := fmt.Sprintf("%02d", moduleNumber)
-	root := filepath.Join(modulesRoot, number+" - "+module.Display)
+	var metadata ModuleMetadata
+	var metadataContent string
+	if existing != nil {
+		metadata = existing.Metadata
+		metadataContent = existing.raw
+	} else {
+		id, err := generate("module")
+		if err != nil {
+			return studyfs.Plan{}, err
+		}
+		if id == "" || ids[id] {
+			return studyfs.Plan{}, fmt.Errorf("%w: generated module ID %q", ErrCollision, id)
+		}
+		directoryName := fmt.Sprintf("%02d - %s", moduleNumber, requested.Display)
+		metadata = ModuleMetadata{
+			SchemaVersion: metadataSchemaVersion, ID: id, CourseID: course.Metadata.ID,
+			Number: moduleNumber, DisplayName: requested.Display, Slug: requested.Slug,
+			DirectoryName: directoryName, CreatedAt: date, UpdatedAt: date,
+		}
+		metadataContent, err = encodeMetadata(metadata)
+		if err != nil {
+			return studyfs.Plan{}, err
+		}
+	}
+	root := filepath.Join(course.Path, "Modules", metadata.DirectoryName)
 	operations := []studyfs.Operation{
-		directory(root),
-		directory(filepath.Join(root, "Assets")),
-		directory(filepath.Join(root, "Assets", "Audio")),
-		directory(filepath.Join(root, "Assets", "Documents")),
-		directory(filepath.Join(root, "Assets", "Screenshots")),
-		directory(filepath.Join(root, "Assets", "Video")),
-		directory(filepath.Join(root, "Notes")),
-		directory(filepath.Join(root, "Sessions")),
-		directory(filepath.Join(root, "Transcripts")),
-		file(filepath.Join(root, "Module Overview.md"), moduleOverview(course, module, moduleNumber, number, date)),
+		directory(root), directory(filepath.Join(root, "Assets")),
+		directory(filepath.Join(root, "Assets", "Audio")), directory(filepath.Join(root, "Assets", "Documents")),
+		directory(filepath.Join(root, "Assets", "Screenshots")), directory(filepath.Join(root, "Assets", "Video")),
+		directory(filepath.Join(root, "Notes")), directory(filepath.Join(root, "Sessions")), directory(filepath.Join(root, "Transcripts")),
+		file(filepath.Join(root, moduleMetadataFile), metadataContent),
+		file(filepath.Join(root, "Module Overview.md"), moduleOverview(metadata)),
 	}
-	plan := studyfs.Plan{Root: root, Scope: studyfs.PlanScopeModule, Operations: operations}
-	if err := validatePrivatePlan(plan, paths); err != nil {
-		return studyfs.Plan{}, err
-	}
-	return plan, nil
+	return studyfs.NewModuleScopedPlan(paths, course.Path, root, operations)
 }
 
-func moduleOverview(course, module normalizedName, moduleNumber int, paddedNumber string, date time.Time) string {
-	day := date.Format("2006-01-02")
+func moduleOverview(metadata ModuleMetadata) string {
+	created := metadata.CreatedAt.Format(time.RFC3339)
+	updated := metadata.UpdatedAt.Format(time.RFC3339)
 	return fmt.Sprintf(`---
-id: module-%s-%s-%s
+id: %s
 type: module
 visibility: private
-course: %s
-module: %s
+course_id: %s
+module_id: %s
 module_number: %s
+slug: %s
 title: %s
 status: active
 created: %s
 updated: %s
 ---
 
-# %s - %s
+# %02d - %s
 
 ## Learning Objectives
 
@@ -85,6 +121,6 @@ updated: %s
 ## Draft Knowledge
 
 ## Assets
-`, course.Slug, paddedNumber, module.Slug, course.Slug, module.Slug,
-		strconv.Itoa(moduleNumber), module.Display, day, day, paddedNumber, module.Display)
+`, metadata.ID, metadata.CourseID, metadata.ID, strconv.Itoa(metadata.Number), metadata.Slug,
+		metadata.DisplayName, created, updated, metadata.Number, metadata.DisplayName)
 }

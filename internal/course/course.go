@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	studyfs "github.com/Arameair/studypilot/internal/filesystem"
@@ -15,47 +14,84 @@ import (
 
 const coursesDirectory = "01 Courses"
 
-// NewCoursePlan returns a deterministic, private-only course creation plan.
 func NewCoursePlan(paths workspace.Paths, name string, date time.Time) (studyfs.Plan, error) {
-	if err := paths.Validate(); err != nil {
-		return studyfs.Plan{}, fmt.Errorf("validate workspace paths: %w", err)
-	}
-	base := filepath.Join(paths.Private, coursesDirectory)
-	if err := requireDirectory(paths.Private, ErrMissingPrivateVault); err != nil {
-		return studyfs.Plan{}, err
-	}
-	if err := requireDirectory(base, ErrMissingPrivateVault); err != nil {
-		return studyfs.Plan{}, err
-	}
+	return NewCoursePlanWithID(paths, name, date, DefaultIDGenerator)
+}
 
-	courseName, err := normalizeName(name)
+func NewCoursePlanWithID(paths workspace.Paths, name string, date time.Time, generate IDGenerator) (studyfs.Plan, error) {
+	if generate == nil {
+		return studyfs.Plan{}, errors.New("ID generator is required")
+	}
+	requested, err := normalizeName(name)
 	if err != nil {
 		return studyfs.Plan{}, fmt.Errorf("%w: course name", err)
 	}
-	root := filepath.Join(base, courseName.Display)
+	records, err := scanCourses(paths)
+	if err != nil {
+		return studyfs.Plan{}, err
+	}
+	var existing *CourseRecord
+	ids := make(map[string]bool)
+	for index := range records {
+		record := records[index]
+		if ids[record.Metadata.ID] {
+			return studyfs.Plan{}, fmt.Errorf("%w: duplicate course ID %s", ErrAmbiguous, record.Metadata.ID)
+		}
+		ids[record.Metadata.ID] = true
+		normalized, _ := normalizeName(record.Metadata.DisplayName)
+		if record.Metadata.DisplayName == requested.Display && record.Metadata.Slug == requested.Slug {
+			existing = &records[index]
+			continue
+		}
+		if record.Metadata.Slug == requested.Slug || normalized.Key == requested.Key {
+			return studyfs.Plan{}, fmt.Errorf("%w: course name or slug already exists", ErrCollision)
+		}
+	}
+
+	var metadata CourseMetadata
+	var metadataContent string
+	if existing != nil {
+		metadata = existing.Metadata
+		metadataContent = existing.raw
+	} else {
+		id, err := generate("course")
+		if err != nil {
+			return studyfs.Plan{}, err
+		}
+		if id == "" || ids[id] {
+			return studyfs.Plan{}, fmt.Errorf("%w: generated course ID %q", ErrCollision, id)
+		}
+		metadata = CourseMetadata{
+			SchemaVersion: metadataSchemaVersion, ID: id, DisplayName: requested.Display,
+			Slug: requested.Slug, DirectoryName: requested.Display, CreatedAt: date, UpdatedAt: date,
+		}
+		metadataContent, err = encodeMetadata(metadata)
+		if err != nil {
+			return studyfs.Plan{}, err
+		}
+	}
+	root := filepath.Join(paths.Private, coursesDirectory, metadata.DirectoryName)
 	operations := []studyfs.Operation{
-		directory(root),
-		directory(filepath.Join(root, "Course Assets")),
+		directory(root), directory(filepath.Join(root, "Course Assets")),
 		directory(filepath.Join(root, "Course Assets", "Documents")),
 		directory(filepath.Join(root, "Course Assets", "Reference")),
 		directory(filepath.Join(root, "Course Assets", "Screenshots")),
 		directory(filepath.Join(root, "Modules")),
-		file(filepath.Join(root, "Course Overview.md"), courseOverview(courseName, date)),
+		file(filepath.Join(root, courseMetadataFile), metadataContent),
+		file(filepath.Join(root, "Course Overview.md"), courseOverview(metadata)),
 	}
-	plan := studyfs.Plan{Root: root, Scope: studyfs.PlanScopeCourse, Operations: operations}
-	if err := validatePrivatePlan(plan, paths); err != nil {
-		return studyfs.Plan{}, err
-	}
-	return plan, nil
+	return studyfs.NewCourseScopedPlan(paths, root, operations)
 }
 
-func courseOverview(name normalizedName, date time.Time) string {
-	day := date.Format("2006-01-02")
+func courseOverview(metadata CourseMetadata) string {
+	created := metadata.CreatedAt.Format(time.RFC3339)
+	updated := metadata.UpdatedAt.Format(time.RFC3339)
 	return fmt.Sprintf(`---
-id: course-%s
+id: %s
 type: course
 visibility: private
-course: %s
+course_id: %s
+slug: %s
 title: %s
 status: active
 created: %s
@@ -73,22 +109,7 @@ updated: %s
 ## Open Questions
 
 ## Related Knowledge
-`, name.Slug, name.Slug, name.Display, day, day, name.Display)
-}
-
-func validatePrivatePlan(plan studyfs.Plan, paths workspace.Paths) error {
-	if err := plan.Validate(); err != nil {
-		return fmt.Errorf("validate plan: %w", err)
-	}
-	for _, operation := range plan.Operations {
-		if !strictlyWithin(paths.Private, operation.Path) {
-			return fmt.Errorf("operation %q is outside private vault", operation.Path)
-		}
-		if operation.Path == paths.Portfolio || strictlyWithin(paths.Portfolio, operation.Path) {
-			return fmt.Errorf("operation %q enters public portfolio", operation.Path)
-		}
-	}
-	return nil
+`, metadata.ID, metadata.ID, metadata.Slug, metadata.DisplayName, created, updated, metadata.DisplayName)
 }
 
 func requireDirectory(path string, sentinel error) error {
@@ -114,12 +135,4 @@ func directory(path string) studyfs.Operation {
 
 func file(path, content string) studyfs.Operation {
 	return studyfs.Operation{Kind: studyfs.OperationCreateFile, Path: path, Content: content}
-}
-
-func strictlyWithin(parent, child string) bool {
-	relative, err := filepath.Rel(filepath.Clean(parent), filepath.Clean(child))
-	if err != nil || relative == "." || relative == ".." || filepath.IsAbs(relative) {
-		return false
-	}
-	return !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }

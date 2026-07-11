@@ -325,13 +325,13 @@ func TestCourseCreateAndDryRun(t *testing.T) {
 			}
 			courseRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk")
 			if test.dryRun {
-				if !strings.Contains(stdout, "CREATE DIRECTORY") || !strings.Contains(stdout, "Dry run complete: 7 operations planned") {
+				if !strings.Contains(stdout, "CREATE DIRECTORY") || !strings.Contains(stdout, "Dry run complete: 8 operations planned") {
 					t.Errorf("dry-run stdout = %q", stdout)
 				}
 				assertPathDoesNotExist(t, courseRoot)
 				return
 			}
-			if stderr != "" || !strings.Contains(stdout, "Course creation complete:") || !strings.Contains(stdout, "Created: 7") {
+			if stderr != "" || !strings.Contains(stdout, "Course creation complete:") || !strings.Contains(stdout, "Created: 8") {
 				t.Errorf("stdout/stderr = %q / %q", stdout, stderr)
 			}
 			overview, err := os.ReadFile(filepath.Join(courseRoot, "Course Overview.md"))
@@ -372,13 +372,13 @@ func TestModuleCreateAndDryRun(t *testing.T) {
 			}
 			moduleRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk", "Modules", "03 - Windows Services")
 			if test.dryRun {
-				if !strings.Contains(stdout, "Dry run complete: 10 operations planned") {
+				if !strings.Contains(stdout, "Dry run complete: 11 operations planned") {
 					t.Errorf("dry-run stdout = %q", stdout)
 				}
 				assertPathDoesNotExist(t, moduleRoot)
 				return
 			}
-			if stderr != "" || !strings.Contains(stdout, "Module creation complete:") || !strings.Contains(stdout, "Created: 10") {
+			if stderr != "" || !strings.Contains(stdout, "Module creation complete:") || !strings.Contains(stdout, "Created: 11") {
 				t.Errorf("stdout/stderr = %q / %q", stdout, stderr)
 			}
 			for _, relative := range []string{"Sessions", "Notes", "Transcripts", filepath.Join("Assets", "Screenshots"), filepath.Join("Assets", "Audio"), filepath.Join("Assets", "Video"), filepath.Join("Assets", "Documents")} {
@@ -418,6 +418,21 @@ func TestCourseConflictExitCode(t *testing.T) {
 	contents, err := os.ReadFile(overview)
 	if err != nil || string(contents) != "preserve" {
 		t.Errorf("conflicting overview changed: %q / %v", contents, err)
+	}
+}
+
+func TestModuleDuplicateNumberExitCode(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "StudyPilot")
+	initializeForCLI(t, root)
+	createCourseForCLI(t, root)
+	args := []string{"module", "create", "--course", "TCM Practical Help Desk", "--number", "3", "--name", "First", "--root", root}
+	if code, _, stderr := runForTest(args); code != 0 {
+		t.Fatalf("first module = %d/%q", code, stderr)
+	}
+	args = []string{"module", "create", "--course", "TCM Practical Help Desk", "--number", "3", "--name", "Second", "--root", root}
+	code, _, stderr := runForTest(args)
+	if code != 1 || !strings.Contains(stderr, "module number 3 already exists") {
+		t.Errorf("duplicate module = %d/%q", code, stderr)
 	}
 }
 

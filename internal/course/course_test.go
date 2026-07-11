@@ -18,15 +18,15 @@ var fixedDate = time.Date(2026, time.July, 11, 18, 30, 0, 0, time.UTC)
 
 func TestNewCoursePlan(t *testing.T) {
 	paths := initializedWorkspace(t)
-	plan, err := NewCoursePlan(paths, "TCM Practical Help Desk", fixedDate)
+	plan, err := NewCoursePlanWithID(paths, "TCM Practical Help Desk", fixedDate, fixedID("course-test-id"))
 	if err != nil {
 		t.Fatalf("NewCoursePlan() error = %v", err)
 	}
 	if err := plan.Validate(); err != nil {
 		t.Fatalf("plan.Validate() error = %v", err)
 	}
-	if len(plan.Operations) != 7 {
-		t.Fatalf("len(Operations) = %d, want 7", len(plan.Operations))
+	if len(plan.Operations) != 8 {
+		t.Fatalf("len(Operations) = %d, want 8", len(plan.Operations))
 	}
 	wantRoot := filepath.Join(paths.Private, coursesDirectory, "TCM Practical Help Desk")
 	if plan.Root != wantRoot || plan.Scope != studyfs.PlanScopeCourse {
@@ -39,15 +39,18 @@ func TestNewCoursePlan(t *testing.T) {
 		filepath.Join(wantRoot, "Course Assets", "Reference"),
 		filepath.Join(wantRoot, "Course Assets", "Screenshots"),
 		filepath.Join(wantRoot, "Modules"),
+		filepath.Join(wantRoot, courseMetadataFile),
 		filepath.Join(wantRoot, "Course Overview.md"),
 	})
 	overview := operationContent(t, plan, filepath.Join(wantRoot, "Course Overview.md"))
 	for _, required := range []string{
-		"id: course-tcm-practical-help-desk",
+		"id: course-test-id",
+		"course_id: course-test-id",
+		"slug: tcm-practical-help-desk",
 		"visibility: private",
 		"title: TCM Practical Help Desk",
-		"created: 2026-07-11",
-		"updated: 2026-07-11",
+		"created: 2026-07-11T18:30:00Z",
+		"updated: 2026-07-11T18:30:00Z",
 		"# TCM Practical Help Desk",
 		"## Related Knowledge",
 	} {
@@ -64,7 +67,7 @@ func TestNewCoursePlan(t *testing.T) {
 		t.Fatalf("planning wrote course root: %v", err)
 	}
 
-	second, err := NewCoursePlan(paths, "TCM Practical Help Desk", fixedDate)
+	second, err := NewCoursePlanWithID(paths, "TCM Practical Help Desk", fixedDate, fixedID("course-test-id"))
 	if err != nil {
 		t.Fatalf("second NewCoursePlan() error = %v", err)
 	}
@@ -73,9 +76,9 @@ func TestNewCoursePlan(t *testing.T) {
 	}
 }
 
-func TestCourseExecutionIsSafeAndIdempotent(t *testing.T) {
+func TestCourseExecutionIsSafeAndIdempotentAcrossDates(t *testing.T) {
 	paths := initializedWorkspace(t)
-	plan, err := NewCoursePlan(paths, "TCM Practical Help Desk", fixedDate)
+	plan, err := NewCoursePlanWithID(paths, "TCM Practical Help Desk", fixedDate, fixedID("course-stable-id"))
 	if err != nil {
 		t.Fatalf("NewCoursePlan() error = %v", err)
 	}
@@ -83,17 +86,69 @@ func TestCourseExecutionIsSafeAndIdempotent(t *testing.T) {
 	if err != nil || first.HasConflicts() || first.CreatedCount() != len(plan.Operations) {
 		t.Fatalf("first Execute() report/error = %#v / %v", first, err)
 	}
-	before := operationContent(t, plan, filepath.Join(plan.Root, "Course Overview.md"))
-	second, err := studyfs.Execute(plan)
+	metadataBefore, err := os.ReadFile(filepath.Join(plan.Root, courseMetadataFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterPlan, err := NewCoursePlanWithID(paths, "TCM Practical Help Desk", fixedDate.AddDate(0, 0, 3), failingID)
+	if err != nil {
+		t.Fatalf("later NewCoursePlan() error = %v", err)
+	}
+	second, err := studyfs.Execute(laterPlan)
 	if err != nil || second.HasConflicts() || second.SkippedCount() != len(plan.Operations) {
 		t.Fatalf("second Execute() report/error = %#v / %v", second, err)
 	}
-	after, err := os.ReadFile(filepath.Join(plan.Root, "Course Overview.md"))
+	after, err := os.ReadFile(filepath.Join(plan.Root, courseMetadataFile))
 	if err != nil {
 		t.Fatalf("read overview: %v", err)
 	}
-	if string(after) != before {
-		t.Error("idempotent execution changed overview")
+	if string(after) != string(metadataBefore) {
+		t.Error("idempotent execution changed identity metadata")
+	}
+}
+
+func TestCourseCollisions(t *testing.T) {
+	paths := initializedWorkspace(t)
+	plan, err := NewCoursePlanWithID(paths, "Help Desk", fixedDate, fixedID("course-one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := studyfs.Execute(plan); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Help-Desk", "Help_Desk", "help desk"} {
+		if _, err := NewCoursePlanWithID(paths, name, fixedDate, fixedID("course-two")); !errors.Is(err, ErrCollision) {
+			t.Errorf("name %q error = %v, want collision", name, err)
+		}
+	}
+}
+
+func TestUnicodeNormalizationReusesIdentity(t *testing.T) {
+	paths := initializedWorkspace(t)
+	plan, err := NewCoursePlanWithID(paths, "Café", fixedDate, fixedID("course-cafe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := studyfs.Execute(plan); err != nil {
+		t.Fatal(err)
+	}
+	later, err := NewCoursePlanWithID(paths, "Cafe\u0301", fixedDate.AddDate(0, 0, 1), failingID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if later.Root != plan.Root || operationContent(t, later, filepath.Join(later.Root, courseMetadataFile)) != operationContent(t, plan, filepath.Join(plan.Root, courseMetadataFile)) {
+		t.Fatal("Unicode-equivalent name did not reuse immutable identity")
+	}
+}
+
+func TestGeneratedCourseIDCollisionRejected(t *testing.T) {
+	paths := initializedWorkspace(t)
+	plan, _ := NewCoursePlanWithID(paths, "One", fixedDate, fixedID("course-same"))
+	if _, err := studyfs.Execute(plan); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewCoursePlanWithID(paths, "Two", fixedDate, fixedID("course-same")); !errors.Is(err, ErrCollision) {
+		t.Fatalf("error = %v, want generated ID collision", err)
 	}
 }
 
@@ -237,3 +292,6 @@ func operationContent(t *testing.T, plan studyfs.Plan, path string) string {
 	t.Fatalf("no operation for %q", path)
 	return ""
 }
+
+func fixedID(id string) IDGenerator    { return func(string) (string, error) { return id, nil } }
+func failingID(string) (string, error) { return "", errors.New("ID generator should not be called") }

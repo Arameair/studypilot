@@ -169,6 +169,59 @@ func TestNewPlanRejectsInvalidWorkspacePaths(t *testing.T) {
 	}
 }
 
+func TestScopedPlanAuthorityRejectsUnsafeRootsAndOperations(t *testing.T) {
+	paths := testWorkspacePaths(t)
+	courses := filepath.Join(paths.Private, "01 Courses")
+	courseA := filepath.Join(courses, "Course A")
+	courseB := filepath.Join(courses, "Course B")
+	moduleA := filepath.Join(courseA, "Modules", "01 - Module")
+	dir := func(path string) Operation { return Operation{Kind: OperationCreateDirectory, Path: path} }
+
+	tests := []struct {
+		name  string
+		build func() (Plan, error)
+	}{
+		{name: "course in public portfolio", build: func() (Plan, error) {
+			return NewCourseScopedPlan(paths, filepath.Join(paths.Portfolio, "Course"), []Operation{dir(filepath.Join(paths.Portfolio, "Course"))})
+		}},
+		{name: "course at arbitrary root", build: func() (Plan, error) {
+			return NewCourseScopedPlan(paths, filepath.Join(filepath.Dir(paths.Root), "arbitrary"), []Operation{dir(filepath.Join(filepath.Dir(paths.Root), "arbitrary"))})
+		}},
+		{name: "operation outside course", build: func() (Plan, error) {
+			return NewCourseScopedPlan(paths, courseA, []Operation{dir(courseA), dir(courseB)})
+		}},
+		{name: "operation in portfolio", build: func() (Plan, error) {
+			return NewCourseScopedPlan(paths, courseA, []Operation{dir(courseA), dir(paths.Portfolio)})
+		}},
+		{name: "scoped path traversal", build: func() (Plan, error) {
+			traversal := courseA + string(filepath.Separator) + ".." + string(filepath.Separator) + "Course B"
+			return NewCourseScopedPlan(paths, courseA, []Operation{dir(courseA), dir(traversal)})
+		}},
+		{name: "module in sibling course", build: func() (Plan, error) {
+			return NewModuleScopedPlan(paths, courseA, filepath.Join(courseB, "Modules", "01 - Module"), []Operation{dir(filepath.Join(courseB, "Modules", "01 - Module"))})
+		}},
+		{name: "module directly under private vault", build: func() (Plan, error) {
+			return NewModuleScopedPlan(paths, courseA, filepath.Join(paths.Private, "Module"), []Operation{dir(filepath.Join(paths.Private, "Module"))})
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := test.build(); err == nil {
+				t.Fatal("unsafe scoped plan accepted")
+			}
+		})
+	}
+
+	valid, err := NewModuleScopedPlan(paths, courseA, moduleA, []Operation{dir(moduleA)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid.Root = filepath.Join(courseB, "Modules", "01 - Module")
+	if err := valid.Validate(); err == nil {
+		t.Fatal("mismatched trusted root accepted")
+	}
+}
+
 func testWorkspacePaths(t *testing.T) workspace.Paths {
 	t.Helper()
 	paths, err := workspace.PathsFromRoot(t.TempDir())

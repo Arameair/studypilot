@@ -45,6 +45,14 @@ type Plan struct {
 	Root       string
 	Scope      PlanScope
 	Operations []Operation
+	authority  *planAuthority
+}
+
+type planAuthority struct {
+	paths       workspace.Paths
+	allowedRoot string
+	courseRoot  string
+	scope       PlanScope
 }
 
 // NewPlan constructs a deterministic workspace plan without accessing the
@@ -71,9 +79,53 @@ func NewPlan(paths workspace.Paths) (Plan, error) {
 	operations = append(operations, directoryOperation(paths.Portfolio))
 	operations = append(operations, contractOperations(paths.Portfolio, portfolioContract)...)
 
-	plan := Plan{Root: paths.Root, Operations: operations}
+	plan := Plan{
+		Root: paths.Root, Scope: PlanScopeWorkspace, Operations: operations,
+		authority: &planAuthority{paths: paths, allowedRoot: paths.Root, scope: PlanScopeWorkspace},
+	}
 	if err := plan.Validate(); err != nil {
 		return Plan{}, fmt.Errorf("validate generated plan: %w", err)
+	}
+	return plan, nil
+}
+
+// NewCourseScopedPlan authorizes operations for one course beneath the
+// validated private course directory.
+func NewCourseScopedPlan(paths workspace.Paths, courseRoot string, operations []Operation) (Plan, error) {
+	return newScopedPlan(paths, PlanScopeCourse, "", courseRoot, operations)
+}
+
+// NewModuleScopedPlan authorizes operations for one module within a verified
+// course root. The course package is responsible for verifying course metadata.
+func NewModuleScopedPlan(paths workspace.Paths, courseRoot, moduleRoot string, operations []Operation) (Plan, error) {
+	return newScopedPlan(paths, PlanScopeModule, courseRoot, moduleRoot, operations)
+}
+
+func newScopedPlan(paths workspace.Paths, scope PlanScope, courseRoot, allowedRoot string, operations []Operation) (Plan, error) {
+	if err := paths.Validate(); err != nil {
+		return Plan{}, fmt.Errorf("validate workspace paths: %w", err)
+	}
+	coursesRoot := filepath.Join(paths.Private, "01 Courses")
+	if !strictlyWithin(coursesRoot, allowedRoot) {
+		return Plan{}, errors.New("scoped plan root must be inside the private course directory")
+	}
+	if allowedRoot == paths.Portfolio || strictlyWithin(paths.Portfolio, allowedRoot) {
+		return Plan{}, errors.New("scoped plan root must not enter the public portfolio")
+	}
+	if scope == PlanScopeModule {
+		if !strictlyWithin(coursesRoot, courseRoot) {
+			return Plan{}, errors.New("module course root must be inside the private course directory")
+		}
+		if !strictlyWithin(filepath.Join(courseRoot, "Modules"), allowedRoot) {
+			return Plan{}, errors.New("module root must be inside the verified course Modules directory")
+		}
+	}
+	plan := Plan{
+		Root: filepath.Clean(allowedRoot), Scope: scope, Operations: slices.Clone(operations),
+		authority: &planAuthority{paths: paths, allowedRoot: filepath.Clean(allowedRoot), courseRoot: filepath.Clean(courseRoot), scope: scope},
+	}
+	if err := plan.Validate(); err != nil {
+		return Plan{}, err
 	}
 	return plan, nil
 }
@@ -95,10 +147,28 @@ func (p Plan) Validate() error {
 	if len(p.Operations) == 0 {
 		return errors.New("plan must contain operations")
 	}
+	if p.authority == nil {
+		return errors.New("plan has no trusted authority")
+	}
+	if err := p.authority.paths.Validate(); err != nil {
+		return fmt.Errorf("validate plan authority: %w", err)
+	}
+	if p.Scope != p.authority.scope || filepath.Clean(p.Root) != p.authority.allowedRoot {
+		return errors.New("plan scope or root does not match trusted authority")
+	}
 
 	root := filepath.Clean(p.Root)
-	privateRoot := filepath.Join(root, privateVaultName)
-	portfolioRoot := filepath.Join(root, portfolioName)
+	privateRoot := p.authority.paths.Private
+	portfolioRoot := p.authority.paths.Portfolio
+	if p.Scope == PlanScopeWorkspace && root != filepath.Clean(p.authority.paths.Root) {
+		return errors.New("workspace plan root does not match workspace authority")
+	}
+	if p.Scope != PlanScopeWorkspace {
+		coursesRoot := filepath.Join(privateRoot, "01 Courses")
+		if !strictlyWithin(coursesRoot, root) {
+			return errors.New("scoped plan root is outside the private course directory")
+		}
+	}
 	seen := make(map[string]OperationKind, len(p.Operations))
 	rootFound := false
 	privateRootFound := false
@@ -132,6 +202,9 @@ func (p Plan) Validate() error {
 			return fmt.Errorf("duplicate operation path %q", operation.Path)
 		}
 		seen[path] = operation.Kind
+		if p.Scope != PlanScopeWorkspace && (path == portfolioRoot || strictlyWithin(portfolioRoot, path)) {
+			return fmt.Errorf("operation path %q enters public portfolio", operation.Path)
+		}
 
 		if path == root {
 			if operation.Kind != OperationCreateDirectory {

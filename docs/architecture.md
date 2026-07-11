@@ -35,5 +35,18 @@ source first becomes a private draft, is rewritten and verified, passes a
 publication review, receives explicit human approval, and only then informs the
 creation of a separate public artifact.
 
-This document states the architecture contract. The current skeleton does not
-yet implement or enforce it.
+This document states the architecture contract. Enforcement is implemented
+incrementally by the workspace, planning, and execution layers.
+
+## Managed entity identity
+
+StudyPilot courses and modules use immutable generated IDs. Versioned
+`.studypilot-course.json` and `.studypilot-module.json` files are authoritative
+for operational lookup and parent references; Markdown frontmatter mirrors
+those IDs for people and tools. Display names, slugs, directory names, and
+Markdown titles are not authoritative identity.
+
+Module numbers are unique within their parent course and define module sort
+order. Course and module filesystem plans carry trusted workspace authority and
+are constrained to validated roots beneath the private vault's `01 Courses`
+directory. Scoped plans cannot authorize public portfolio paths.
