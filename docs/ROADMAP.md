@@ -57,23 +57,29 @@ The joint synthetic capture workflow passed its lifecycle and durability checks.
 The one discovered defect—absolute workspace paths in setup command output—was
 corrected at the CLI presentation boundary without changing capture behavior.
 
-## Next Milestone — Transcription Planning (future)
-Begin only after review of the setup-output correction and safety audit.
+## Phase 15 — Core Transcription Domain Contracts (complete)
+Immutable job identity, strict lifecycle transitions, backend/model capability
+types, transcript and partial models, provenance, artifact naming, safe errors,
+and deterministic fake/unavailable services. No real transcription.
 
-## Phase 15 — Asset Import and Routing (future)
+## Next Milestone — Transcription Queue, Retry, and Reconciliation Contracts (future)
+Define persistence-neutral queue, retry, and reconciliation behavior before any
+backend or worker implementation.
+
+## Phase 16 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 16 — Transcription (future)
+## Phase 17 — Transcription Backend (future)
 Whisper and derived transcripts.
 
-## Phase 17 — Diagnostics (future)
+## Phase 18 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 18 — Desktop and Tray UI (future)
+## Phase 19 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 19 — Private Git Workflow (future)
+## Phase 20 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 20 — Publication Workflow (future)
+## Phase 21 — Publication Workflow (future)
 Reviewed derivatives with human approval.

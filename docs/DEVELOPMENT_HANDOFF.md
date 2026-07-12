@@ -45,13 +45,13 @@ real vaults.
 
 ## Current Milestone
 
-The first joint capture validation passed every capture, revision, persistence,
-WAV, manifest, immutability, and restart assertion. Its sole failure was setup
-CLI output exposing the selected absolute workspace path. The presentation
-adapter now renders managed filesystem paths relative to the workspace root in
-successful and dry-run `init`, `course create`, and `module create` output and
-uses classified, path-free setup errors. Internal plans retain absolute paths;
-capture and session behavior are unchanged.
+`internal/transcription` now defines the core transcription domain without a
+backend: immutable generated jobs, strict lifecycle transitions, validated
+capabilities/models, final and partial transcripts, provenance, relative
+artifact names, safe errors, and race-safe fake/unavailable services. A minimal
+application service alias preserves `adapter → application → transcription`.
+There is no persistence, runtime mapping, orchestration, CLI, process execution,
+model download, or real transcription.
 
 ## Session Stash Warning
 
@@ -60,9 +60,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-Review the output-privacy correction and safety-audit evidence. Transcription
-planning may begin only after review. Review stash concepts without applying
-the stash; do not restore it.
+After review, define transcription queue, retry, and reconciliation contracts.
+Do not implement a backend, worker, CLI, persistence, or Whisper in that step.
+Review stash concepts without applying the stash; do not restore it.
 
 ## Real-Vault Safety Rule
 

@@ -2,10 +2,9 @@
 
 ## Current Milestone
 
-Setup CLI Output Privacy Correction follows the first joint capture validation.
-The validation passed 41 of 42 assertions and found one presentation defect:
-successful `init`, `course create`, and `module create` output exposed the
-selected absolute workspace path.
+Core Transcription Domain Contracts follow the reviewed setup-output privacy
+correction. This milestone defines only UI-neutral transcription types and
+in-memory test services; it adds no transcription backend or application flow.
 
 ## Completed Capabilities
 
@@ -35,6 +34,9 @@ selected absolute workspace path.
 - Privacy-safe setup rendering: successful and dry-run filesystem outcomes use
   paths relative to the selected workspace root, and setup errors remain
   classified without exposing raw filesystem causes
+- Core transcription job identity and lifecycle, capability/model contracts,
+  transcript and partial-result validation, provenance, artifact naming, safe
+  errors, and deterministic fake/unavailable services
 
 ## Package Map
 
@@ -63,8 +65,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Review this correction and its rerun safety audit. Transcription planning is the
-next milestone only after that review. Do not restore the stash automatically.
+Transcription queue, retry, and reconciliation contracts. Do not restore the
+stash automatically and do not add a real backend in that contract milestone.
 
 ## Verification
 

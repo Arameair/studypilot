@@ -199,6 +199,19 @@ Application persists authoritative backend outcomes through the session
 repository and exposes reconciliation diagnostics; the CLI is a thin safe
 adapter. See [capture-cli.md](capture-cli.md).
 
+## Core transcription contracts
+
+`internal/transcription` owns immutable job identity, strict lifecycle states,
+backend/model capability descriptions, transcript and partial-result models,
+provenance, relative artifact naming, and safe classified errors. Its
+deterministic fake and unavailable service perform no filesystem or process I/O.
+
+The dependency direction is `future adapter → internal/application →
+internal/transcription → future backend`. Transcription never imports the
+application, session, capture backend, or CLI packages. Queue persistence,
+retry, reconciliation, runtime mapping, orchestration, and real transcription
+remain future work. See [transcription-contracts.md](transcription-contracts.md).
+
 ## Session CLI adapter and tolerant inspection
 
 `cmd/studypilot session` is a thin adapter over the lifecycle application
