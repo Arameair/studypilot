@@ -65,12 +65,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review and commit, integrate capture into the application and CLI: back the
-`BackendService` `SessionResolver` with `internal/session`, persist capture
-results into `.studypilot-runtime.json` through the lifecycle services, and add
-capture CLI commands. Enforce both in-process and cross-process recording
-ownership before real recording. Review stash concepts without applying it; do
-not restore the old implementation.
+After review and commit, perform the first joint end-to-end capture validation.
+Audit runtime/backend mismatch handling and restart behavior before considering
+transcription. Review stash concepts without applying it; do not restore it.
 
 ## Real-Vault Safety Rule
 

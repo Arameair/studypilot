@@ -65,6 +65,83 @@ func (s *BackendService) SetCaptureIDGenerator(gen capture.CaptureIDGenerator) {
 }
 
 var _ capture.Service = (*BackendService)(nil)
+var _ capture.RecoveryInspector = (*BackendService)(nil)
+var _ capture.RestorableService = (*BackendService)(nil)
+
+type segmentRecoverer interface {
+	RecoverSegment(context.Context, StartSegmentRequest) (ActiveSegment, error)
+}
+
+func (s *BackendService) Restore(ctx context.Context, req capture.RestoreRequest) error {
+	if err := req.CaptureID.Validate(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	if s.instances[req.CaptureID] != nil {
+		s.mu.Unlock()
+		return nil
+	}
+	s.mu.Unlock()
+	root, err := s.resolve(req.SessionID)
+	if err != nil {
+		return err
+	}
+	inst := &serviceInstance{sessionID: req.SessionID, sessionRoot: root, deviceID: req.DeviceID, status: req.Status, finalized: append([]capture.Segment(nil), req.Finalized...)}
+	for _, item := range req.Finalized {
+		if item.Number > inst.lastNumber {
+			inst.lastNumber = item.Number
+		}
+	}
+	if req.Status == studyruntime.CaptureStatusRecording {
+		if req.Active == nil {
+			return capture.NewError(capture.ErrorInvalidState, capture.OpInspect, false, capture.OutcomeNotStarted, "runtime active segment is missing", nil)
+		}
+		recoverer, ok := s.backend.(segmentRecoverer)
+		if !ok {
+			return capture.NewError(capture.ErrorUnavailable, capture.OpInspect, false, capture.OutcomeNotStarted, "backend cannot restore capture", nil)
+		}
+		active, err := recoverer.RecoverSegment(ctx, StartSegmentRequest{SessionRoot: root, SessionID: req.SessionID, CaptureID: req.CaptureID, SegmentID: req.Active.ID, Number: req.Active.Number, DeviceID: req.DeviceID})
+		if err != nil {
+			return translateError(capture.OpInspect, err)
+		}
+		inst.active = &active
+		inst.lastNumber = active.Number
+	}
+	s.mu.Lock()
+	s.instances[req.CaptureID] = inst
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *BackendService) InspectStorage(ctx context.Context, sessionID string) (capture.StorageInspection, error) {
+	root, err := s.resolve(sessionID)
+	if err != nil {
+		return capture.StorageInspection{}, capture.NewError(capture.ErrorCaptureNotFound, capture.OpInspect, false, capture.OutcomeNotStarted, "session could not be resolved", err)
+	}
+	inspection, err := s.backend.Inspect(ctx, root)
+	if err != nil {
+		return capture.StorageInspection{}, translateError(capture.OpInspect, err)
+	}
+	result := capture.StorageInspection{HasOwner: inspection.HasOwner}
+	for _, item := range inspection.Finalized {
+		result.Finalized = append(result.Finalized, capture.StorageSegment{Number: item.Number, SegmentID: item.SegmentID, AudioFile: "Segments/" + item.AudioFile, ManifestFile: "Segments/" + item.ManifestFile, BytesWritten: item.BytesWritten})
+	}
+	for _, item := range inspection.Partial {
+		result.Partial = append(result.Partial, capture.StorageSegment{Number: item.Number, AudioFile: "Segments/" + item.AudioFile})
+	}
+	for _, issue := range inspection.Issues {
+		severity := "warning"
+		if issue.Kind == IssueActiveOwnership || issue.Kind == IssueConflictingFiles || issue.Kind == IssueMalformedManifest {
+			severity = "error"
+		}
+		resource := issue.File
+		if resource != "" {
+			resource = "Segments/" + resource
+		}
+		result.Issues = append(result.Issues, capture.StorageIssue{Code: string(issue.Kind), Severity: severity, Message: issue.Message, RelativeResource: resource, Recoverable: issue.Kind != IssueActiveOwnership})
+	}
+	return result, nil
+}
 
 func (s *BackendService) Capabilities(ctx context.Context) (capture.Capability, error) {
 	caps, err := s.backend.Capabilities(ctx)

@@ -2,8 +2,13 @@
 
 StudyPilot's runtime contract is a UI-neutral, JSON-serializable description of
 state. Schema version 1 can be consumed consistently by a terminal, tray, GUI,
-diagnostic tool, or future restart-recovery service. It is not persisted or
-displayed by the application yet.
+diagnostic tool, or restart-recovery service. Session repositories now persist
+it atomically and application/CLI results expose safe selected fields.
+
+Capture persistence includes capture/backend/device identity, the active
+segment number and timing, and immutable finalized summaries with relative
+audio paths. These fields allow restart inspection without making runtime state
+an authority over the backend's WAV, manifest, and ownership evidence.
 
 ## Independent dimensions
 

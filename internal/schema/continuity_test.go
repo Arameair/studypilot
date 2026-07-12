@@ -17,6 +17,7 @@ func TestProjectContinuityDocuments(t *testing.T) {
 		"session-cli.md":         {"# Session CLI Adapter", "## Revision workflow", "## Strict writes versus tolerant reads", "## Exit codes", "## Current exclusions"},
 		"capture-contracts.md":   {"# Capture Service Contracts", "## Scope", "## Runtime snapshot mapping", "## Session independence", "## Current exclusions", "## Next milestone"},
 		"recording-backend.md":   {"# Recording Backend", "## Synthetic backend", "## Pause and resume invariants", "## Durability order", "## Recovery inspection", "## Current exclusions", "## Next milestone"},
+		"capture-cli.md":         {"# Capture Application and CLI Integration", "## Architecture", "## Persistence and uncertain outcomes", "## Current exclusions and next milestone"},
 	}
 	for name, headings := range required {
 		content, err := os.ReadFile(filepath.Join("..", "..", "docs", name))

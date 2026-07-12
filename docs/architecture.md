@@ -192,6 +192,13 @@ concurrent calls share in-process mutation locks. UI adapters never receive a
 repository or filesystem authority. See
 [session-lifecycle.md](session-lifecycle.md).
 
+## Capture application and CLI
+
+Capture composition preserves `cmd → application → capture.Service → backend`.
+Application persists authoritative backend outcomes through the session
+repository and exposes reconciliation diagnostics; the CLI is a thin safe
+adapter. See [capture-cli.md](capture-cli.md).
+
 ## Session CLI adapter and tolerant inspection
 
 `cmd/studypilot session` is a thin adapter over the lifecycle application

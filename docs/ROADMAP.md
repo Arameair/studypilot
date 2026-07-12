@@ -48,10 +48,12 @@ synthetic backend, a Linux process backend boundary, atomic partial-to-final
 durability, exclusive ownership, versioned manifests, and read-only crash
 recovery inspection. Session and capture state remain independent.
 
-## Next Milestone — Capture Application and CLI Integration (future)
-Wire the recording backend to the session lifecycle through the application
-layer, persisting capture results into runtime state and adding capture CLI
-commands.
+## Phase 14 — Capture Application and CLI Integration (complete)
+Application orchestration, atomic runtime persistence, explicit synthetic CLI,
+restart restoration, and read-only reconciliation diagnostics.
+
+## Next Milestone — First Joint End-to-End Capture Validation (future)
+Audit the complete workflow and failure boundaries before transcription.
 
 ## Phase 15 — Asset Import and Routing (future)
 Safe private attachment routing.

@@ -22,6 +22,46 @@ type engine interface {
 	begin(ctx context.Context, partialPath string, format AudioFormat) (engineHandle, error)
 }
 
+type recoverableEngine interface {
+	recover(string) (engineHandle, error)
+}
+
+func (r *recorder) RecoverSegment(ctx context.Context, req StartSegmentRequest) (ActiveSegment, error) {
+	if err := checkContext(ctx, OpNameStart); err != nil {
+		return ActiveSegment{}, err
+	}
+	engine, ok := r.engine.(recoverableEngine)
+	if !ok {
+		return ActiveSegment{}, newError(ErrorUnavailable, OpNameStart, "backend cannot recover an active segment", nil)
+	}
+	authority, err := NewSegmentAuthority(r.paths, req.SessionRoot)
+	if err != nil {
+		return ActiveSegment{}, err
+	}
+	ownership, present, err := readOwnership(authority.SegmentsDir())
+	if err != nil || !present {
+		return ActiveSegment{}, newError(ErrorOwnershipConflict, OpNameStart, "active ownership is unavailable", err)
+	}
+	if ownership.CaptureID != string(req.CaptureID) || ownership.SegmentID != req.SegmentID || ownership.Number != req.Number {
+		return ActiveSegment{}, newError(ErrorOwnershipConflict, OpNameStart, "ownership does not match runtime", nil)
+	}
+	partial, err := authority.Resolve(partialName(req.Number))
+	if err != nil {
+		return ActiveSegment{}, err
+	}
+	handle, err := engine.recover(partial)
+	if err != nil {
+		return ActiveSegment{}, err
+	}
+	active := ActiveSegment{CaptureID: req.CaptureID, SegmentID: req.SegmentID, SessionID: req.SessionID, Number: req.Number, DeviceID: req.DeviceID, RelativePath: partialName(req.Number), StartedAt: ownership.StartedAt, Backend: r.engine.name()}
+	finalPath, _ := authority.Resolve(audioName(req.Number))
+	manifestPath, _ := authority.Resolve(manifestName(req.Number))
+	r.mu.Lock()
+	r.active[active.SegmentID] = &activeRecording{authority: authority, handle: handle, segment: active, partialPath: partial, finalPath: finalPath, manifestPath: manifestPath, format: r.format, deviceID: req.DeviceID}
+	r.mu.Unlock()
+	return active, nil
+}
+
 // engineHandle owns the in-progress audio production for one segment. Only the
 // recorder holds it; it is never exposed in a result.
 type engineHandle interface {

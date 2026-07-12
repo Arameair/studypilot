@@ -77,7 +77,7 @@ func (s RuntimeState) Validate(metadata Metadata) error {
 func validateSnapshotTransitions(current, next studyruntime.Snapshot) error {
 	checks := []error{
 		studyruntime.ValidateSessionTransition(current.SessionStatus, next.SessionStatus),
-		studyruntime.ValidateCaptureTransition(current.CaptureStatus, next.CaptureStatus),
+		validatePersistedCaptureTransition(current.CaptureStatus, next.CaptureStatus),
 		studyruntime.ValidateTranscriptionTransition(current.TranscriptionStatus, next.TranscriptionStatus),
 		studyruntime.ValidateFilesystemTransition(current.FilesystemStatus, next.FilesystemStatus),
 		studyruntime.ValidatePublicationTransition(current.PublicationStatus, next.PublicationStatus),
@@ -88,4 +88,23 @@ func validateSnapshotTransitions(current, next studyruntime.Snapshot) error {
 		}
 	}
 	return nil
+}
+
+func validatePersistedCaptureTransition(from, to studyruntime.CaptureStatus) error {
+	if studyruntime.ValidateCaptureTransition(from, to) == nil {
+		return nil
+	}
+	allowed := map[studyruntime.CaptureStatus][]studyruntime.CaptureStatus{
+		studyruntime.CaptureStatusUnavailable: {studyruntime.CaptureStatusRecording},
+		studyruntime.CaptureStatusReady:       {studyruntime.CaptureStatusRecording},
+		studyruntime.CaptureStatusStopped:     {studyruntime.CaptureStatusRecording},
+		studyruntime.CaptureStatusRecording:   {studyruntime.CaptureStatusPaused, studyruntime.CaptureStatusStopped},
+		studyruntime.CaptureStatusPaused:      {studyruntime.CaptureStatusRecording, studyruntime.CaptureStatusStopped},
+	}
+	for _, candidate := range allowed[from] {
+		if candidate == to {
+			return nil
+		}
+	}
+	return studyruntime.ValidateCaptureTransition(from, to)
 }

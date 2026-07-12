@@ -69,6 +69,23 @@ type syntheticEngine struct {
 	source Source
 }
 
+func (e *syntheticEngine) recover(path string) (engineHandle, error) {
+	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		return nil, newError(ErrorPartialOutput, OpNameStart, "partial audio could not be reopened", err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	bytes := info.Size() - wavHeaderSize
+	if bytes < 0 {
+		bytes = 0
+	}
+	return &syntheticHandle{file: file, dataBytes: bytes}, nil
+}
+
 func (e *syntheticEngine) name() string { return "synthetic" }
 
 func (e *syntheticEngine) begin(ctx context.Context, partialPath string, format AudioFormat) (engineHandle, error) {

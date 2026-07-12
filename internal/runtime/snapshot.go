@@ -38,6 +38,9 @@ type Snapshot struct {
 	SessionTitle        string              `json:"session_title,omitempty"`
 	SessionStatus       SessionStatus       `json:"session_status"`
 	CaptureStatus       CaptureStatus       `json:"capture_status"`
+	CaptureID           string              `json:"capture_id,omitempty"`
+	CaptureDeviceID     string              `json:"capture_device_id,omitempty"`
+	CaptureBackend      string              `json:"capture_backend,omitempty"`
 	TranscriptionStatus TranscriptionStatus `json:"transcription_status"`
 	FilesystemStatus    FilesystemStatus    `json:"filesystem_status"`
 	PublicationStatus   PublicationStatus   `json:"publication_status"`

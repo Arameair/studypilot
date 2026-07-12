@@ -170,8 +170,8 @@ Linux.
 
 ## Current exclusions
 
-No capture application integration, no capture CLI, no runtime-state
-persistence, no real-vault recording, no automatic recovery repair, no Whisper
+Synthetic application/CLI integration and runtime persistence now exist. There
+is no real-vault recording, automatic recovery repair, or Whisper
 or transcription, no GUI or tray, no video or screenshot capture, no
 publication, and no cross-process recording ownership enforcement beyond the
 advisory lock (a future recording implementation must enforce both in-process
@@ -179,4 +179,4 @@ and process-level ownership).
 
 ## Next milestone
 
-Capture application and CLI integration.
+First joint end-to-end capture validation.

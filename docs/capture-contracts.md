@@ -206,9 +206,9 @@ production behavior never depends on test-only mutable package globals.
 
 ## Current exclusions
 
-No real audio or video backend, no media files, no capture CLI commands, no
-Whisper or transcription, no GUI or tray, no background daemon, no real-vault
-use, and no cross-process recording ownership yet.
+Synthetic recording and capture CLI integration now create WAV media in
+authorized temporary/private workspaces. There is no Whisper/transcription,
+GUI/tray, background daemon, real-vault use, or automatic repair.
 
 ## Recording backend
 
@@ -219,4 +219,4 @@ deterministic synthetic backend and a Linux process backend boundary. See
 
 ## Next milestone
 
-Capture application and CLI integration.
+First joint end-to-end capture validation.

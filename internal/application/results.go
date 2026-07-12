@@ -97,6 +97,34 @@ type SessionScanResult struct {
 	Issues   []SessionScanIssue
 }
 
+type CaptureSegmentResult struct {
+	ID           string
+	Number       int
+	Status       studyruntime.SegmentStatus
+	RelativePath string
+	BytesWritten int64
+}
+type CaptureResult struct {
+	Operation, SessionID, CaptureID string
+	CaptureStatus                   studyruntime.CaptureStatus
+	Segment                         *CaptureSegmentResult
+	Revision                        uint64
+	DurabilityWarning               bool
+}
+type CaptureIssue struct {
+	Code, Severity, Message, RelativeResource string
+	Recoverable                               bool
+}
+type CaptureInspectionResult struct {
+	SessionID, CaptureID          string
+	RuntimeStatus, BackendStatus  studyruntime.CaptureStatus
+	Active                        *CaptureSegmentResult
+	Finalized, Partial            []CaptureSegmentResult
+	Issues                        []CaptureIssue
+	Revision                      uint64
+	Recoverable, BackendAvailable bool
+}
+
 func planResult(plan filesystem.Plan) PlanResult {
 	operations := make([]PlannedOperation, len(plan.Operations))
 	for i, operation := range plan.Operations {

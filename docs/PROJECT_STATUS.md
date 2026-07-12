@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-Recording Segment Lifecycle and Local Audio Backend follows the committed
-capture service contracts milestone. No SHA is hardcoded here.
+Capture Application and CLI Integration follows the committed recording backend
+milestone. No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -28,6 +28,8 @@ capture service contracts milestone. No SHA is hardcoded here.
   capture and a Linux process backend boundary, real segment files with
   atomic partial-to-final durability, exclusive ownership, versioned manifests,
   read-only crash recovery inspection, and a `BackendService` adapter
+- Application-owned capture orchestration, atomic runtime segment persistence,
+  synthetic capture CLI, restart restoration, and mismatch diagnostics
 
 ## Package Map
 
@@ -41,8 +43,7 @@ creation and mutation; `runtime` owns status contracts; `schema` owns documents;
 
 ## Known Limitations
 
-No capture application integration, capture CLI commands, runtime-state
-persistence of segments, real-vault recording, transcription, desktop UI, public
+No real-vault recording, transcription, desktop UI, public
 migration application, rollback command, cross-process mutation lock, or
 cross-process recording ownership enforcement exists. Recording device discovery
 is conservative: a Linux recorder executable is not treated as a confirmed
@@ -57,7 +58,7 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Capture application and CLI integration. Do not restore the stash automatically.
+First joint end-to-end capture validation. Do not restore the stash automatically.
 
 ## Verification
 

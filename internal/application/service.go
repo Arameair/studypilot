@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Arameair/studypilot/internal/capture"
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
@@ -29,6 +30,7 @@ type Dependencies struct {
 	Now                 func() time.Time
 	GenerateID          course.IDGenerator
 	SessionRepositories SessionRepositoryFactory
+	CaptureServices     CaptureServiceFactory
 }
 
 // Service exposes StudyPilot's shared application use cases.
@@ -38,6 +40,9 @@ type Service struct {
 	sessionRepositories SessionRepositoryFactory
 	sessionMu           sync.Mutex
 	sessionByRoot       map[string]SessionRepository
+	captureServices     CaptureServiceFactory
+	captureByRoot       map[string]capture.Service
+	captureRoots        map[string]string
 }
 
 // NewService constructs a Service, rejecting missing required dependencies.
@@ -52,13 +57,21 @@ func NewService(deps Dependencies) (*Service, error) {
 	if factory == nil {
 		factory = defaultSessionRepositoryFactory
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository)}, nil
+	captureFactory := deps.CaptureServices
+	if captureFactory == nil {
+		captureFactory = defaultCaptureServiceFactory
+	}
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string)}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall
 // clock and StudyPilot's secure course/module ID generator.
 func NewDefaultService() *Service {
-	return &Service{now: time.Now, generateID: course.DefaultIDGenerator, sessionRepositories: defaultSessionRepositoryFactory, sessionByRoot: make(map[string]SessionRepository)}
+	return &Service{now: time.Now, generateID: course.DefaultIDGenerator, sessionRepositories: defaultSessionRepositoryFactory, sessionByRoot: make(map[string]SessionRepository), captureServices: defaultCaptureServiceFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string)}
+}
+
+func defaultCaptureServiceFactory(workspace.Paths, string, func(string) (string, error)) (capture.Service, error) {
+	return capture.UnavailableService{}, nil
 }
 
 func defaultSessionRepositoryFactory(paths workspace.Paths, clock session.Clock, generate session.IDGenerator) (SessionRepository, error) {

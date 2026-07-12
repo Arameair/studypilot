@@ -16,7 +16,10 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/application"
+	"github.com/Arameair/studypilot/internal/capture"
+	"github.com/Arameair/studypilot/internal/capture/backend"
 	"github.com/Arameair/studypilot/internal/course"
+	"github.com/Arameair/studypilot/internal/workspace"
 )
 
 var version = "dev"
@@ -34,6 +37,7 @@ Usage:
   studypilot course create --name NAME [--dry-run] [--root PATH]
   studypilot module create --course NAME --number NUMBER --name NAME [--dry-run] [--root PATH]
   studypilot session <subcommand> ...   (run 'studypilot session help' for details)
+  studypilot capture <subcommand> ...   (run 'studypilot capture help' for details)
 `
 
 func main() {
@@ -67,9 +71,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runModule(args[1:], stdout, stderr)
 	case "session":
 		return runSession(args[1:], stdout, stderr)
+	case "capture":
+		return runCapture(args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}
+}
+
+func newCaptureService(stderr io.Writer) (*application.Service, int) {
+	factory := func(paths workspace.Paths, name string, resolve func(string) (string, error)) (application.CaptureService, error) {
+		if name != "synthetic" {
+			return nil, capture.NewError(capture.ErrorUnavailable, capture.OpStart, false, capture.OutcomeNotStarted, "unknown capture backend", nil)
+		}
+		raw, err := backend.NewSyntheticBackend(backend.SyntheticConfig{Paths: paths})
+		if err != nil {
+			return nil, err
+		}
+		return backend.NewBackendService(raw, resolve)
+	}
+	service, err := application.NewService(application.Dependencies{Now: now, GenerateID: course.DefaultIDGenerator, CaptureServices: factory})
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: initialize application service\n")
+		return nil, 1
+	}
+	return service, 0
 }
 
 func runInit(args []string, stdout, stderr io.Writer) int {

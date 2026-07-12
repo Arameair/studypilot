@@ -30,6 +30,12 @@ func ApplyStart(snapshot studyruntime.Snapshot, result StartResult) (studyruntim
 		return studyruntime.Snapshot{}, err
 	}
 	out := cloneRuntimeSnapshot(snapshot)
+	if out.CaptureStatus == studyruntime.CaptureStatusUnavailable {
+		if err := studyruntime.ValidateCaptureTransition(out.CaptureStatus, studyruntime.CaptureStatusReady); err != nil {
+			return studyruntime.Snapshot{}, err
+		}
+		out.CaptureStatus = studyruntime.CaptureStatusReady
+	}
 	if err := transitionCapture(&out, OpStart, studyruntime.CaptureStatusStarting, studyruntime.CaptureStatusRecording); err != nil {
 		return studyruntime.Snapshot{}, err
 	}

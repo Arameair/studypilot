@@ -48,3 +48,17 @@ type ListIncompleteSessionsRequest struct{ Root, CourseRef, ModuleRef string }
 // inspection of all its sessions. Both course and module references are
 // required.
 type InspectModuleRequest struct{ Root, CourseRef, ModuleRef string }
+
+type CaptureRequest struct {
+	Root, CourseRef, ModuleRef, SessionRef string
+	ExpectedRevision                       uint64
+}
+type StartCaptureRequest struct {
+	CaptureRequest
+	Backend, DeviceID string
+}
+type ResumeCaptureRequest struct {
+	CaptureRequest
+	DeviceID string
+}
+type InspectCaptureRequest struct{ Root, CourseRef, ModuleRef, SessionRef, Backend string }
