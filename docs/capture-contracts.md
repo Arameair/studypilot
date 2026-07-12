@@ -210,6 +210,13 @@ No real audio or video backend, no media files, no capture CLI commands, no
 Whisper or transcription, no GUI or tray, no background daemon, no real-vault
 use, and no cross-process recording ownership yet.
 
+## Recording backend
+
+These contracts are now implemented by `internal/capture/backend`, which creates
+real WAV segment files under a validated session's `Segments` directory with a
+deterministic synthetic backend and a Linux process backend boundary. See
+[recording-backend.md](recording-backend.md).
+
 ## Next milestone
 
-Recording segment lifecycle and local audio backend.
+Capture application and CLI integration.

@@ -79,6 +79,8 @@ capture service contracts now exist as an independent boundary. There is still
 no real recording, device detection, media files, Whisper, transcription
 workers, GUI, tray, daemon, or real-vault workflow, and no capture CLI commands.
 
-The recommended next milestone is **recording segment lifecycle and local audio
-backend**, implementing `internal/capture.Service` against a real recorder while
-keeping session and capture state independent.
+The recording backend now exists in `internal/capture/backend`, creating real
+segment files while keeping session and capture state independent; it does not
+yet persist into session runtime state. The recommended next milestone is
+**capture application and CLI integration**, wiring the backend to the session
+lifecycle through the application layer.

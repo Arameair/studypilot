@@ -100,6 +100,12 @@ a new numbered segment rather than reopening the finalized one, and a failure
 marks the active segment failed while preserving its timestamps. See
 [capture-contracts.md](capture-contracts.md).
 
+`internal/capture/backend` realizes these summaries as actual WAV files and
+versioned segment manifests under a session's `Segments` directory, using the
+same numbering rules (sequential, starting at 1, never renumbered). Persisting
+the resulting segments into a runtime snapshot remains a later application
+milestone. See [recording-backend.md](recording-backend.md).
+
 ## Validation and compatibility
 
 Snapshot validation checks schema version, statuses, hierarchy, numbering,

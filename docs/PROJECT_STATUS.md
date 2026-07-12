@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-Capture Service Contracts follows the committed session CLI adapter milestone.
-No SHA is hardcoded here.
+Recording Segment Lifecycle and Local Audio Backend follows the committed
+capture service contracts milestone. No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -24,24 +24,31 @@ No SHA is hardcoded here.
   segment identity, explicit start/pause/resume/stop and failure contracts,
   partial/uncertain outcomes, pure runtime-snapshot mapping, and a safe
   unavailable default plus a deterministic race-safe fake
+- Recording backend (`internal/capture/backend`): deterministic synthetic WAV
+  capture and a Linux process backend boundary, real segment files with
+  atomic partial-to-final durability, exclusive ownership, versioned manifests,
+  read-only crash recovery inspection, and a `BackendService` adapter
 
 ## Package Map
 
 `cmd/studypilot` is the thin CLI adapter; `application` orchestrates and owns the
-capture-service contract; `capture` owns UI-neutral capture behavior contracts;
-`course` owns course/module identity; `session` owns session identity,
-operational persistence, and the tolerant read-only scan; `workspace` owns vault
-contracts; `filesystem` owns creation and mutation; `runtime` owns status
-contracts; `schema` owns documents; `migration` owns upgrades.
+capture-service contract; `capture` owns UI-neutral capture behavior contracts
+and `capture/backend` the real recording backends; `course` owns course/module
+identity; `session` owns session identity, operational persistence, and the
+tolerant read-only scan; `workspace` owns vault contracts; `filesystem` owns
+creation and mutation; `runtime` owns status contracts; `schema` owns documents;
+`migration` owns upgrades.
 
 ## Known Limitations
 
-No real capture backend, media files, capture CLI commands, transcription,
-desktop UI, public migration application, rollback command, cross-process
-mutation lock, or cross-process recording ownership exists. History is stored as
-immutable records rather than shared JSONL. The incomplete `list` fails closed on
-a malformed sibling; tolerant diagnosis is available through `session inspect
---all`.
+No capture application integration, capture CLI commands, runtime-state
+persistence of segments, real-vault recording, transcription, desktop UI, public
+migration application, rollback command, cross-process mutation lock, or
+cross-process recording ownership enforcement exists. Recording device discovery
+is conservative: a Linux recorder executable is not treated as a confirmed
+microphone. History is stored as immutable records rather than shared JSONL. The
+incomplete `list` fails closed on a malformed sibling; tolerant diagnosis is
+available through `session inspect --all`.
 
 ## Session Stash Warning
 
@@ -50,8 +57,7 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Recording segment lifecycle and local audio backend. Do not restore the stash
-automatically.
+Capture application and CLI integration. Do not restore the stash automatically.
 
 ## Verification
 

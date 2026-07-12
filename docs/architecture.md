@@ -152,10 +152,11 @@ regeneration. User-created headings and unmarked content remain untouched.
 ## Repository layout
 
 Executable adapters live under `cmd/`; focused packages live under
-`internal/application`, `capture`, `course`, `filesystem`, `migration`,
-`runtime`, `schema`, `session`, and `workspace`. Future capabilities receive
-focused packages, and desktop adapters belong under `cmd/studypilot-desktop` and
-`ui/desktop`. Generic dumping-ground packages are prohibited.
+`internal/application`, `capture` (with `capture/backend`), `course`,
+`filesystem`, `migration`, `runtime`, `schema`, `session`, and `workspace`.
+Future capabilities receive focused packages, and desktop adapters belong under
+`cmd/studypilot-desktop` and `ui/desktop`. Generic dumping-ground packages are
+prohibited.
 
 ## Milestone continuity rule
 
@@ -231,3 +232,24 @@ successes carry an explicit outcome so uncertain state is never hidden, and the
 pure `Apply*` helpers change only capture fields while preserving session,
 transcription, filesystem, and publication status. See
 [capture-contracts.md](capture-contracts.md).
+
+## Recording backend
+
+`internal/capture/backend` is the first real recording backend beneath the
+capture contracts. It creates actual WAV segment files under a validated
+session's `Segments` directory, with a mandatory deterministic synthetic backend
+and a Linux process backend boundary that fails safely when no recorder exists.
+It depends only on the standard library, `internal/capture`, and
+`internal/workspace`; it never mutates session status, writes runtime state,
+transcribes, publishes, or touches the public vault.
+
+A single `recorder` serves both backends through a pluggable `engine`, sharing
+the segment authority, an exclusive ownership lock, an atomic partial-to-final
+durability order, and versioned manifests. Pause finalizes the active segment
+and resume always starts a new numbered segment — never reopening a finalized
+one. Read-only recovery inspection classifies partial audio, missing manifests
+or audio, conflicting files, malformed or unsupported manifests, and stale or
+active ownership without repairing anything. A `BackendService` adapts the
+backend to `capture.Service`; the seam to session persistence is a
+`SessionResolver` the next milestone will back with `internal/session`. See
+[recording-backend.md](recording-backend.md).

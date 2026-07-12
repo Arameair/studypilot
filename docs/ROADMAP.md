@@ -42,25 +42,31 @@ explicit start/pause/resume/stop and failure contracts, partial/uncertain
 outcomes, pure runtime-snapshot mapping, an unavailable default, and a
 deterministic race-safe fake. No real recording.
 
-## Next Milestone — Recording Segment Lifecycle and Local Audio Backend (future)
-Implement `internal/capture.Service` against a real recorder with numbered
-segments and crash reconciliation, keeping session and capture state
-independent.
+## Phase 13 — Recording Segment Lifecycle and Local Audio Backend (complete)
+Real WAV segment files under a validated Segments directory: a deterministic
+synthetic backend, a Linux process backend boundary, atomic partial-to-final
+durability, exclusive ownership, versioned manifests, and read-only crash
+recovery inspection. Session and capture state remain independent.
 
-## Phase 13 — Asset Import and Routing (future)
+## Next Milestone — Capture Application and CLI Integration (future)
+Wire the recording backend to the session lifecycle through the application
+layer, persisting capture results into runtime state and adding capture CLI
+commands.
+
+## Phase 15 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 14 — Transcription (future)
+## Phase 16 — Transcription (future)
 Whisper and derived transcripts.
 
-## Phase 15 — Diagnostics (future)
+## Phase 17 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 16 — Desktop and Tray UI (future)
+## Phase 18 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 17 — Private Git Workflow (future)
+## Phase 19 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 18 — Publication Workflow (future)
+## Phase 20 — Publication Workflow (future)
 Reviewed derivatives with human approval.

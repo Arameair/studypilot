@@ -1,0 +1,186 @@
+package backend
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Arameair/studypilot/internal/capture"
+	studyruntime "github.com/Arameair/studypilot/internal/runtime"
+)
+
+// fakeRunner is a deterministic ProcessRunner that never spawns a real process.
+type fakeRunner struct {
+	available    map[string]string
+	frames       int
+	startErr     error
+	earlyExitErr error
+	stderr       string
+	writeWAV     bool
+	started      int
+	lastSpec     ProcessSpec
+}
+
+func (r *fakeRunner) Lookup(name string) (string, error) {
+	if path, ok := r.available[name]; ok {
+		return path, nil
+	}
+	return "", newError(ErrorExecutableMissing, "process", "recorder executable not found", nil)
+}
+
+func (r *fakeRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, error) {
+	r.started++
+	r.lastSpec = spec
+	if r.startErr != nil {
+		return nil, r.startErr
+	}
+	if r.writeWAV {
+		if err := writeValidWAV(spec.OutputPath, DefaultFormat(), r.frames); err != nil {
+			return nil, err
+		}
+	}
+	return &fakeHandle{earlyExitErr: r.earlyExitErr, stderr: r.stderr}, nil
+}
+
+type fakeHandle struct {
+	earlyExitErr error
+	stderr       string
+	terminated   bool
+	killed       bool
+}
+
+func (h *fakeHandle) Terminate(ctx context.Context) error { h.terminated = true; return h.earlyExitErr }
+func (h *fakeHandle) Kill() error                         { h.killed = true; return nil }
+func (h *fakeHandle) Exited() (bool, error, string) {
+	if h.earlyExitErr != nil {
+		return true, h.earlyExitErr, h.stderr
+	}
+	return false, nil, h.stderr
+}
+
+func writeValidWAV(path string, format AudioFormat, frames int) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)
+	if err != nil {
+		return err
+	}
+	dataLen := frames * format.blockAlign()
+	if err := writeWAVHeader(file, format, uint32(dataLen)); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if _, err := file.Write(make([]byte, dataLen)); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+func newLinuxBackend(t *testing.T, runner ProcessRunner) (Backend, string) {
+	t.Helper()
+	paths, sessionRoot := newSession(t)
+	backend, err := NewLinuxBackend(LinuxConfig{
+		Paths: paths, Runner: runner, Clock: fixedClock(),
+		NewSegmentID: sequentialSegmentIDs(), Liveness: deadLiveness,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return backend, sessionRoot
+}
+
+func TestLinuxBackendRecordsThroughFakeProcess(t *testing.T) {
+	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 300, writeWAV: true, stderr: "some diagnostics"}
+	backend, sessionRoot := newLinuxBackend(t, runner)
+
+	active := startSegment(t, backend, sessionRoot, 1)
+	// The fixed recorder args were used with no shell.
+	if runner.lastSpec.Executable != "/usr/bin/arecord" {
+		t.Fatalf("unexpected executable: %s", runner.lastSpec.Executable)
+	}
+	for _, arg := range runner.lastSpec.Args {
+		if strings.Contains(arg, "&&") || strings.Contains(arg, ";") || strings.Contains(arg, "|") {
+			t.Fatalf("shell metacharacter in args: %q", runner.lastSpec.Args)
+		}
+	}
+	finalized, err := backend.FinalizeSegment(context.Background(), active)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finalized.Segment.Status != studyruntime.SegmentStatusStopped {
+		t.Fatalf("finalized = %+v", finalized.Segment)
+	}
+	if _, err := ParseWAVFile(filepath.Join(segmentsPath(sessionRoot), audioName(1))); err != nil {
+		t.Fatalf("process-produced audio invalid: %v", err)
+	}
+}
+
+func TestLinuxBackendUnavailableWhenNoRecorder(t *testing.T) {
+	runner := &fakeRunner{available: map[string]string{}}
+	backend, sessionRoot := newLinuxBackend(t, runner)
+	caps, err := backend.Capabilities(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps.Status != capture.CapabilityUnavailable || len(caps.Issues) == 0 {
+		t.Fatalf("capabilities = %+v", caps)
+	}
+	_, err = backend.StartSegment(context.Background(), StartSegmentRequest{
+		SessionRoot: sessionRoot, SessionID: testSessionID, CaptureID: testCaptureID, Number: 1, DeviceID: "default",
+	})
+	if CodeOf(err) != ErrorUnavailable {
+		t.Fatalf("start with no recorder = %v", err)
+	}
+}
+
+func TestLinuxBackendReportsProcessExit(t *testing.T) {
+	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true, earlyExitErr: errors.New("exit status 1")}
+	backend, sessionRoot := newLinuxBackend(t, runner)
+	active := startSegment(t, backend, sessionRoot, 1)
+	if _, err := backend.FinalizeSegment(context.Background(), active); CodeOf(err) != ErrorProcessExited {
+		t.Fatalf("finalize after early exit = %v", err)
+	}
+}
+
+func TestLinuxBackendAbortKillsAndKeepsPartial(t *testing.T) {
+	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true}
+	backend, sessionRoot := newLinuxBackend(t, runner)
+	active := startSegment(t, backend, sessionRoot, 1)
+	partial, err := backend.AbortSegment(context.Background(), active)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if partial.Number != 1 || partial.RelativePath != partialName(1) {
+		t.Fatalf("partial = %+v", partial)
+	}
+	if _, present, _ := readOwnership(segmentsPath(sessionRoot)); present {
+		t.Fatal("ownership held after abort")
+	}
+}
+
+func TestBoundedBufferCapsStderr(t *testing.T) {
+	buf := &boundedBuffer{limit: 8}
+	buf.Write([]byte("abcdefghijklmnop"))
+	buf.Write([]byte("more"))
+	if got := buf.String(); len(got) != 8 || got != "abcdefgh" {
+		t.Fatalf("bounded buffer = %q", got)
+	}
+}
+
+func TestExecRunnerClassifiesMissingExecutable(t *testing.T) {
+	runner := NewExecRunner()
+	if _, err := runner.Lookup("studypilot-nonexistent-recorder-xyz"); CodeOf(err) != ErrorExecutableMissing {
+		t.Fatalf("lookup = %v", err)
+	}
+	// Starting a bogus executable fails fast without spawning a real recorder.
+	_, err := runner.Start(context.Background(), ProcessSpec{Executable: "/nonexistent/studypilot-recorder-xyz", OutputPath: filepath.Join(t.TempDir(), "out.wav")})
+	if CodeOf(err) != ErrorExecutableMissing {
+		t.Fatalf("start bogus = %v", err)
+	}
+}
