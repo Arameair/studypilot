@@ -152,10 +152,10 @@ regeneration. User-created headings and unmarked content remain untouched.
 ## Repository layout
 
 Executable adapters live under `cmd/`; focused packages live under
-`internal/application`, `course`, `filesystem`, `migration`, `runtime`,
-`schema`, and `workspace`. Future capabilities receive focused packages, and
-desktop adapters belong under `cmd/studypilot-desktop` and `ui/desktop`.
-Generic dumping-ground packages are prohibited.
+`internal/application`, `capture`, `course`, `filesystem`, `migration`,
+`runtime`, `schema`, `session`, and `workspace`. Future capabilities receive
+focused packages, and desktop adapters belong under `cmd/studypilot-desktop` and
+`ui/desktop`. Generic dumping-ground packages are prohibited.
 
 ## Milestone continuity rule
 
@@ -208,3 +208,26 @@ problematic directory as a typed issue, never follows symlinks, produces no
 mutation authority for malformed entries, treats no malformed entry as healthy,
 and repairs nothing. Reporting issues is a successful read, not a failure. See
 [session-cli.md](session-cli.md).
+
+## Capture service contracts
+
+`internal/capture` defines the UI-neutral contracts for future recording and
+media-segment capture: capability discovery, device abstraction, capture and
+segment identity, explicit start/pause/resume/stop and failure contracts,
+partial/uncertain outcomes, cancellation and timeout behavior, capture error
+classification, and pure runtime-snapshot mapping helpers. It models contracts
+only — it records nothing, probes no hardware, writes no media, and touches no
+real vault.
+
+The package depends solely on the standard library and `internal/runtime`. It
+never mutates session status, completes sessions, persists state, or performs
+I/O. `internal/runtime` owns the state contracts and `internal/session` owns
+persistence; the application layer will later coordinate the two. The
+application owns a `CaptureService` interface that fixes the dependency direction
+(application depends on capture, never the reverse); the safe `UnavailableService`
+default and the deterministic race-safe `FakeService` both satisfy it. Resume
+always creates a new segment rather than reopening a finalized one, failures and
+successes carry an explicit outcome so uncertain state is never hidden, and the
+pure `Apply*` helpers change only capture fields while preserving session,
+transcription, filesystem, and publication status. See
+[capture-contracts.md](capture-contracts.md).

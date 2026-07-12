@@ -92,6 +92,14 @@ This supports future pause-finalize and resume-new-segment behavior while
 preserving earlier media. Safe mutation, media files, runtime persistence, and
 restart reconciliation are outside this milestone.
 
+The capture service contracts in `internal/capture` build directly on these
+segment summaries: pure `Apply*` helpers map a start/pause/resume/stop/failure
+onto a snapshot, changing only capture-related fields and leaving session,
+transcription, filesystem, and publication status untouched. Resume always adds
+a new numbered segment rather than reopening the finalized one, and a failure
+marks the active segment failed while preserving its timestamps. See
+[capture-contracts.md](capture-contracts.md).
+
 ## Validation and compatibility
 
 Snapshot validation checks schema version, statuses, hierarchy, numbering,

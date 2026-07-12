@@ -36,11 +36,16 @@ Thin session commands over the application services with human and JSON output,
 a revision workflow, and a tolerant read-only module inspection that reports
 malformed siblings without hiding healthy sessions. No recording.
 
-## Next Milestone — Capture Service Contracts (future)
-UI-neutral capture state services over the lifecycle boundary; no recording yet.
+## Phase 12 — Capture Service Contracts (complete)
+UI-neutral capability and device discovery, capture and segment identity,
+explicit start/pause/resume/stop and failure contracts, partial/uncertain
+outcomes, pure runtime-snapshot mapping, an unavailable default, and a
+deterministic race-safe fake. No real recording.
 
-## Phase 12 — Capture Segments and Recovery (future)
-Numbered segments and crash reconciliation.
+## Next Milestone — Recording Segment Lifecycle and Local Audio Backend (future)
+Implement `internal/capture.Service` against a real recorder with numbered
+segments and crash reconciliation, keeping session and capture state
+independent.
 
 ## Phase 13 — Asset Import and Routing (future)
 Safe private attachment routing.

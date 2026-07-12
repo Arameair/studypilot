@@ -63,12 +63,22 @@ Discovering issues is a successful inspection, not a command error, so the
 `session inspect --all` command still exits `0`. Write use cases keep failing
 closed on an ambiguous or unsafe module. See [session-cli.md](session-cli.md).
 
+## Capture independence
+
+The capture service contracts in `internal/capture` are deliberately separate
+from session lifecycle: capture never mutates session status, never completes a
+session, and never begins transcription. Starting a session still never starts
+recording, and stopping or failing capture never completes a session. The
+application layer will later coordinate session and capture state explicitly
+through the `CaptureService` interface. See [capture-contracts.md](capture-contracts.md).
+
 ## Current exclusions and recommendation
 
-The lifecycle API is now exposed through a thin `studypilot session` CLI. There
-is no recording, device detection, media segments, Whisper, transcription
-workers, GUI, tray, daemon, or real-vault workflow.
+The lifecycle API is exposed through a thin `studypilot session` CLI, and the
+capture service contracts now exist as an independent boundary. There is still
+no real recording, device detection, media files, Whisper, transcription
+workers, GUI, tray, daemon, or real-vault workflow, and no capture CLI commands.
 
-The recommended next milestone is **capture service contracts**. Lifecycle
-behavior is now inspectable through a user interface without bypassing the
-application boundary, so capture can build on it.
+The recommended next milestone is **recording segment lifecycle and local audio
+backend**, implementing `internal/capture.Service` against a real recorder while
+keeping session and capture state independent.

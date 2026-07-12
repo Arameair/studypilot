@@ -2,8 +2,8 @@
 
 ## Current Milestone
 
-Session CLI Adapter and Resilient Workflow Inspection follows the committed
-session lifecycle application services milestone. No SHA is hardcoded here.
+Capture Service Contracts follows the committed session CLI adapter milestone.
+No SHA is hardcoded here.
 
 ## Completed Capabilities
 
@@ -20,21 +20,27 @@ session lifecycle application services milestone. No SHA is hardcoded here.
   summaries alongside typed per-directory issues
 - Thin `studypilot session` CLI over the lifecycle services with human and JSON
   output, a revision workflow, and strict-write/tolerant-read behavior
+- UI-neutral capture service contracts: capability/device discovery, capture and
+  segment identity, explicit start/pause/resume/stop and failure contracts,
+  partial/uncertain outcomes, pure runtime-snapshot mapping, and a safe
+  unavailable default plus a deterministic race-safe fake
 
 ## Package Map
 
-`cmd/studypilot` is the thin CLI adapter; `application` orchestrates; `course`
-owns course/module identity; `session` owns session identity, operational
-persistence, and the tolerant read-only scan; `workspace` owns vault contracts;
-`filesystem` owns creation and mutation; `runtime` owns status contracts;
-`schema` owns documents; `migration` owns upgrades.
+`cmd/studypilot` is the thin CLI adapter; `application` orchestrates and owns the
+capture-service contract; `capture` owns UI-neutral capture behavior contracts;
+`course` owns course/module identity; `session` owns session identity,
+operational persistence, and the tolerant read-only scan; `workspace` owns vault
+contracts; `filesystem` owns creation and mutation; `runtime` owns status
+contracts; `schema` owns documents; `migration` owns upgrades.
 
 ## Known Limitations
 
-No capture, transcription, desktop UI, public migration application, rollback
-command, or cross-process mutation lock exists. History is stored as immutable
-records rather than shared JSONL. The incomplete `list` fails closed on a
-malformed sibling; tolerant diagnosis is available through `session inspect
+No real capture backend, media files, capture CLI commands, transcription,
+desktop UI, public migration application, rollback command, cross-process
+mutation lock, or cross-process recording ownership exists. History is stored as
+immutable records rather than shared JSONL. The incomplete `list` fails closed on
+a malformed sibling; tolerant diagnosis is available through `session inspect
 --all`.
 
 ## Session Stash Warning
@@ -44,7 +50,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Capture service contracts. Do not restore the stash automatically.
+Recording segment lifecycle and local audio backend. Do not restore the stash
+automatically.
 
 ## Verification
 

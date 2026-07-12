@@ -21,8 +21,10 @@ dumping-ground packages.
 
 `workspace` owns vault contracts, `course` identity, `filesystem` safe writes,
 `runtime` status schemas, `schema` document ownership, `migration` upgrades,
-`session` operational persistence plus the tolerant read-only scan, `application`
-UI-neutral lifecycle orchestration, and `cmd/studypilot` the thin CLI adapter.
+`session` operational persistence plus the tolerant read-only scan, `capture`
+UI-neutral capture behavior contracts, `application` UI-neutral lifecycle
+orchestration plus the capture-service contract, and `cmd/studypilot` the thin
+CLI adapter.
 
 ## Privacy Boundaries
 
@@ -43,12 +45,15 @@ real vaults.
 
 ## Current Milestone
 
-The session CLI adapter and resilient workflow inspection are in the current
-working tree, built on the committed session lifecycle application services.
-`cmd/studypilot session` exposes create/get/start/interrupt/recover/resume/
-complete/abandon/list/inspect with human and JSON output and a revision
-workflow. Writes stay strict; `session inspect --all` is a tolerant, read-only
-diagnostic backed by `session.Scan` and `Service.InspectModuleSessions`.
+The capture service contracts are in the current working tree, built on the
+committed session CLI adapter. `internal/capture` defines capability/device
+discovery, capture and segment identity, explicit start/pause/resume/stop and
+failure contracts, partial/uncertain outcomes, cancellation and timeout
+behavior, pure `Apply*` runtime-snapshot mapping, a safe `UnavailableService`
+default, and a deterministic race-safe `FakeService`. The package depends only
+on the standard library and `internal/runtime`; the application layer owns a
+`CaptureService` interface and classifies capture error codes. Nothing records
+audio, writes media, or touches the real vault.
 
 ## Session Stash Warning
 
@@ -57,10 +62,11 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review and commit, define capture service contracts over
-`internal/application`, building on the lifecycle boundary the session CLI now
-exercises. Review stash concepts without applying it; do not restore the old
-implementation. Recording remains out of scope.
+After review and commit, implement the recording segment lifecycle and a local
+audio backend behind `internal/capture.Service`, keeping session and capture
+state independent and enforcing both in-process and cross-process recording
+ownership. Review stash concepts without applying it; do not restore the old
+implementation.
 
 ## Real-Vault Safety Rule
 

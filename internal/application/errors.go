@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Arameair/studypilot/internal/capture"
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
@@ -70,6 +71,9 @@ func Classify(err error) ErrorKind {
 	if errors.As(err, &appErr) && appErr.Kind != "" {
 		return appErr.Kind
 	}
+	if kind, ok := classifyCapture(err); ok {
+		return kind
+	}
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return ErrorCancelled
@@ -96,5 +100,37 @@ func Classify(err error) ErrorKind {
 		return ErrorUnsafe
 	default:
 		return ErrorInternal
+	}
+}
+
+// classifyCapture maps a capture error code to a stable application kind so
+// both the CLI and a future GUI classify capture failures identically. It is
+// consulted before the generic context check so a capture timeout classifies
+// as internal rather than being folded into cancellation.
+//
+// Choices: capture unavailable and a missing device are not_found (the support
+// or device does not exist); a busy device, an invalid capture state, and a
+// segment conflict are conflict; permission denied is unsafe; an invalid
+// capture request is invalid_input; explicit cancellation is cancelled; and a
+// timeout or backend failure is internal, keeping it distinct from the
+// device-level not_found and conflict kinds.
+func classifyCapture(err error) (ErrorKind, bool) {
+	code := capture.CodeOf(err)
+	if code == "" {
+		return "", false
+	}
+	switch code {
+	case capture.ErrorUnavailable, capture.ErrorCaptureNotFound, capture.ErrorDeviceMissing:
+		return ErrorNotFound, true
+	case capture.ErrorDeviceBusy, capture.ErrorInvalidState, capture.ErrorSegmentConflict:
+		return ErrorConflict, true
+	case capture.ErrorPermissionDenied:
+		return ErrorUnsafe, true
+	case capture.ErrorInvalidRequest:
+		return ErrorInvalidInput, true
+	case capture.ErrorCancelled:
+		return ErrorCancelled, true
+	default:
+		return ErrorInternal, true
 	}
 }
