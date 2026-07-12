@@ -52,8 +52,13 @@ recovery inspection. Session and capture state remain independent.
 Application orchestration, atomic runtime persistence, explicit synthetic CLI,
 restart restoration, and read-only reconciliation diagnostics.
 
-## Next Milestone — First Joint End-to-End Capture Validation (future)
-Audit the complete workflow and failure boundaries before transcription.
+## Capture Validation and Setup Output Privacy Correction (complete)
+The joint synthetic capture workflow passed its lifecycle and durability checks.
+The one discovered defect—absolute workspace paths in setup command output—was
+corrected at the CLI presentation boundary without changing capture behavior.
+
+## Next Milestone — Transcription Planning (future)
+Begin only after review of the setup-output correction and safety audit.
 
 ## Phase 15 — Asset Import and Routing (future)
 Safe private attachment routing.

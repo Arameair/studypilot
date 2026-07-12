@@ -44,11 +44,11 @@ func TestRenderPlanRendersOperations(t *testing.T) {
 		{Kind: application.PlanKindFile, Path: "/vault/file.md"},
 	}}
 	var stdout, stderr bytes.Buffer
-	code := renderPlan(result, nil, &stdout, &stderr)
+	code := renderPlan(result, nil, "/vault", &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("renderPlan code = %d, want 0", code)
 	}
-	for _, want := range []string{"CREATE DIRECTORY  /vault/dir", "CREATE FILE       /vault/file.md", "Dry run complete: 2 operations planned.", "No files or directories were created."} {
+	for _, want := range []string{"CREATE DIRECTORY  dir", "CREATE FILE       file.md", "Dry run complete: 2 operations planned.", "No files or directories were created."} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout missing %q; got %q", want, stdout.String())
 		}
@@ -68,14 +68,14 @@ func TestRenderExecutionRoutesConflictsAndCounts(t *testing.T) {
 		},
 	}
 	var stdout, stderr bytes.Buffer
-	code := renderExecution(result, nil, "Test", &stdout, &stderr)
+	code := renderExecution(result, nil, "Test", "/vault", &stdout, &stderr)
 	if code != 1 {
 		t.Errorf("renderExecution code = %d, want 1 for conflicts", code)
 	}
-	if !strings.Contains(stdout.String(), "CREATED   /vault/a") || !strings.Contains(stdout.String(), "Conflicts: 1") {
+	if !strings.Contains(stdout.String(), "CREATED   a") || !strings.Contains(stdout.String(), "Conflicts: 1") {
 		t.Errorf("stdout = %q", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "CONFLICT  /vault/c: existing file content differs") {
+	if !strings.Contains(stderr.String(), "CONFLICT  c: managed path conflicts with existing state") {
 		t.Errorf("conflict not routed to stderr: %q", stderr.String())
 	}
 }
@@ -89,7 +89,7 @@ func TestRenderExecutionReportsErrorAfterSummary(t *testing.T) {
 	}
 	err := &application.Error{Kind: application.ErrorUnsafe, Message: "execute filesystem plan", Cause: errors.New("unsafe symlink encountered")}
 	var stdout, stderr bytes.Buffer
-	code := renderExecution(result, err, "Test", &stdout, &stderr)
+	code := renderExecution(result, err, "Test", "/vault", &stdout, &stderr)
 	if code != 1 {
 		t.Errorf("renderExecution code = %d, want 1", code)
 	}
@@ -97,6 +97,53 @@ func TestRenderExecutionReportsErrorAfterSummary(t *testing.T) {
 		t.Errorf("summary missing: %q", stdout.String())
 	}
 	if !strings.Contains(stderr.String(), "unsafe symlink") {
-		t.Errorf("error not reported: %q", stderr.String())
+		if !strings.Contains(stderr.String(), "unsafe managed filesystem state") {
+			t.Errorf("safe error not reported: %q", stderr.String())
+		}
+	}
+}
+
+func TestSafeManagedPathCrossPlatformForms(t *testing.T) {
+	tests := []struct{ root, value, want string }{
+		{root: "/tmp/example", value: "/tmp/example", want: "."},
+		{root: "/home/user/example", value: "/home/user/example/private/file", want: "private/file"},
+		{root: `C:\Users\User\example`, value: `C:\Users\User\example\private\file`, want: "private/file"},
+		{root: `\\server\share\example`, value: `\\server\share\example\private\file`, want: "private/file"},
+		{root: "/safe/root", value: "/home/user/example", want: "<managed-path>"},
+		{root: `C:\safe\root`, value: `C:\Users\User\example`, want: "<managed-path>"},
+		{root: `\\safe\share`, value: `\\server\share\example`, want: "<managed-path>"},
+	}
+	for _, test := range tests {
+		if got := safeManagedPath(test.value, test.root); got != test.want {
+			t.Errorf("safeManagedPath(%q, %q) = %q, want %q", test.value, test.root, got, test.want)
+		}
+	}
+}
+
+func TestReportErrorDoesNotExposeFilesystemCausePaths(t *testing.T) {
+	privatePaths := []string{
+		"/tmp/example/private/file",
+		"/home/user/example/private/file",
+		`C:\Users\User\example\private\file`,
+		`\\server\share\example\private\file`,
+	}
+	for _, privatePath := range privatePaths {
+		t.Run(privatePath, func(t *testing.T) {
+			err := &application.Error{
+				Kind:    application.ErrorInternal,
+				Message: "execute filesystem plan",
+				Cause:   errors.New("open " + privatePath + ": permission denied"),
+			}
+			var stderr bytes.Buffer
+			if code := reportError(err, &stderr); code != 1 {
+				t.Fatalf("reportError code = %d, want 1", code)
+			}
+			if strings.Contains(stderr.String(), privatePath) {
+				t.Errorf("stderr exposed private path: %q", stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "execute filesystem plan: failed") {
+				t.Errorf("stderr omitted safe classified message: %q", stderr.String())
+			}
+		})
 	}
 }

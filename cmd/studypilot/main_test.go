@@ -63,9 +63,8 @@ func TestDefaultDryRun(t *testing.T) {
 		t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
 	}
 	for _, required := range []string{
-		root,
-		filepath.Join(root, "Learning-Vault-Private"),
-		filepath.Join(root, "IT-Knowledge-Portfolio"),
+		"Learning-Vault-Private",
+		"IT-Knowledge-Portfolio",
 		"CREATE DIRECTORY",
 		"CREATE FILE",
 		"Dry run complete:",
@@ -76,6 +75,7 @@ func TestDefaultDryRun(t *testing.T) {
 			t.Errorf("stdout does not contain %q", required)
 		}
 	}
+	assertOutputHidesPrivatePaths(t, stdout, stderr, root, home)
 	if stderr != "" {
 		t.Errorf("stderr = %q, want empty", stderr)
 	}
@@ -99,9 +99,7 @@ func TestCustomRootDryRunForms(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
 			}
-			if !strings.Contains(stdout, root) {
-				t.Errorf("stdout does not contain custom root %q", root)
-			}
+			assertOutputHidesPrivatePaths(t, stdout, stderr, root, filepath.Dir(root))
 			if stderr != "" {
 				t.Errorf("stderr = %q, want empty", stderr)
 			}
@@ -124,6 +122,7 @@ func TestRealInitialization(t *testing.T) {
 			t.Errorf("stdout does not contain %q", required)
 		}
 	}
+	assertOutputHidesPrivatePaths(t, stdout, stderr, root, filepath.Dir(root))
 	assertContractTree(t, filepath.Join(root, "Learning-Vault-Private"), workspace.PrivateVaultContract())
 	assertContractTree(t, filepath.Join(root, "IT-Knowledge-Portfolio"), workspace.PublicPortfolioContract())
 	assertNoGitRepositories(t, root)
@@ -168,7 +167,7 @@ func TestInitializationConflictingFile(t *testing.T) {
 	if code != 1 {
 		t.Errorf("run() code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr, "CONFLICT") || !strings.Contains(stderr, path) {
+	if !strings.Contains(stderr, "CONFLICT") || strings.Contains(stderr, path) {
 		t.Errorf("stderr does not identify conflict: %q", stderr)
 	}
 	if !strings.Contains(stdout, "Conflicts: 1") {
@@ -237,7 +236,7 @@ func TestInitializationTypeConflicts(t *testing.T) {
 			if code != 1 {
 				t.Errorf("run() code = %d, want 1", code)
 			}
-			if !strings.Contains(stderr, "CONFLICT") || !strings.Contains(stderr, path) {
+			if !strings.Contains(stderr, "CONFLICT") || strings.Contains(stderr, path) {
 				t.Errorf("stderr does not identify conflict: %q", stderr)
 			}
 			after, err := os.Lstat(path)
@@ -278,7 +277,7 @@ func TestInitializationRejectsSymlink(t *testing.T) {
 	if code != 1 {
 		t.Errorf("run() code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr, "CONFLICT") || !strings.Contains(stderr, "unsafe symlink") {
+	if !strings.Contains(stderr, "CONFLICT") || !strings.Contains(stderr, "unsafe managed filesystem state") {
 		t.Errorf("stderr does not identify symlink conflict: %q", stderr)
 	}
 	entries, err := os.ReadDir(outside)
@@ -324,6 +323,7 @@ func TestCourseCreateAndDryRun(t *testing.T) {
 				t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
 			}
 			courseRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk")
+			assertOutputHidesPrivatePaths(t, stdout, stderr, root, filepath.Dir(root))
 			if test.dryRun {
 				if !strings.Contains(stdout, "CREATE DIRECTORY") || !strings.Contains(stdout, "Dry run complete: 8 operations planned") {
 					t.Errorf("dry-run stdout = %q", stdout)
@@ -371,6 +371,7 @@ func TestModuleCreateAndDryRun(t *testing.T) {
 				t.Fatalf("run() code = %d, want 0; stderr = %q", code, stderr)
 			}
 			moduleRoot := filepath.Join(root, "Learning-Vault-Private", "01 Courses", "TCM Practical Help Desk", "Modules", "03 - Windows Services")
+			assertOutputHidesPrivatePaths(t, stdout, stderr, root, filepath.Dir(root))
 			if test.dryRun {
 				if !strings.Contains(stdout, "Dry run complete: 11 operations planned") {
 					t.Errorf("dry-run stdout = %q", stdout)
@@ -397,7 +398,7 @@ func TestModuleCreateRequiresCourse(t *testing.T) {
 	if code != 1 {
 		t.Errorf("run() code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr, "construct module plan") || !strings.Contains(stderr, "course is unavailable") {
+	if !strings.Contains(stderr, "construct module plan") || !strings.Contains(stderr, "required managed resource is unavailable") {
 		t.Errorf("stderr = %q", stderr)
 	}
 }
@@ -431,7 +432,7 @@ func TestModuleDuplicateNumberExitCode(t *testing.T) {
 	}
 	args = []string{"module", "create", "--course", "TCM Practical Help Desk", "--number", "3", "--name", "Second", "--root", root}
 	code, _, stderr := runForTest(args)
-	if code != 1 || !strings.Contains(stderr, "module number 3 already exists") {
+	if code != 1 || !strings.Contains(stderr, "managed resource conflicts with existing state") {
 		t.Errorf("duplicate module = %d/%q", code, stderr)
 	}
 }
@@ -494,6 +495,24 @@ func assertPathDoesNotExist(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatalf("path %q exists after dry run or returned unexpected error: %v", path, err)
+	}
+}
+
+func assertOutputHidesPrivatePaths(t *testing.T, stdout, stderr string, privatePaths ...string) {
+	t.Helper()
+	combined := stdout + stderr
+	for _, privatePath := range privatePaths {
+		if privatePath != "" && strings.Contains(combined, privatePath) {
+			t.Errorf("CLI output disclosed private path %q: %q", privatePath, combined)
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" && strings.Contains(combined, home) {
+		t.Errorf("CLI output disclosed user home directory: %q", combined)
+	}
+	for _, unsafe := range []string{"panic:", "goroutine ", "stack trace", "process_id", "process handle"} {
+		if strings.Contains(strings.ToLower(combined), unsafe) {
+			t.Errorf("CLI output disclosed %q: %q", unsafe, combined)
+		}
 	}
 }
 

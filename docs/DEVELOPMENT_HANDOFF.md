@@ -45,18 +45,13 @@ real vaults.
 
 ## Current Milestone
 
-The recording backend is in the current working tree, built on the committed
-capture service contracts. `internal/capture/backend` creates real WAV segment
-files under a validated session's `Segments` directory with a mandatory
-deterministic synthetic backend and a Linux process backend boundary. It shares
-one recorder across engines with a segment authority, an exclusive ownership
-lock, an atomic partial-to-final durability order, versioned manifests, and
-read-only crash recovery inspection. A `BackendService` adapts it to
-`capture.Service` via an injected `SessionResolver` seam. The package depends
-only on the standard library, `internal/capture`, and `internal/workspace`; it
-records no audio without a source, writes no runtime state, and never touches
-the real vault. Tests use a synthetic source, a fake process runner, and
-injected clock, IDs, and liveness.
+The first joint capture validation passed every capture, revision, persistence,
+WAV, manifest, immutability, and restart assertion. Its sole failure was setup
+CLI output exposing the selected absolute workspace path. The presentation
+adapter now renders managed filesystem paths relative to the workspace root in
+successful and dry-run `init`, `course create`, and `module create` output and
+uses classified, path-free setup errors. Internal plans retain absolute paths;
+capture and session behavior are unchanged.
 
 ## Session Stash Warning
 
@@ -65,9 +60,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review and commit, perform the first joint end-to-end capture validation.
-Audit runtime/backend mismatch handling and restart behavior before considering
-transcription. Review stash concepts without applying it; do not restore it.
+Review the output-privacy correction and safety-audit evidence. Transcription
+planning may begin only after review. Review stash concepts without applying
+the stash; do not restore it.
 
 ## Real-Vault Safety Rule
 

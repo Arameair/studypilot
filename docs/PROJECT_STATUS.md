@@ -2,8 +2,10 @@
 
 ## Current Milestone
 
-Capture Application and CLI Integration follows the committed recording backend
-milestone. No SHA is hardcoded here.
+Setup CLI Output Privacy Correction follows the first joint capture validation.
+The validation passed 41 of 42 assertions and found one presentation defect:
+successful `init`, `course create`, and `module create` output exposed the
+selected absolute workspace path.
 
 ## Completed Capabilities
 
@@ -30,6 +32,9 @@ milestone. No SHA is hardcoded here.
   read-only crash recovery inspection, and a `BackendService` adapter
 - Application-owned capture orchestration, atomic runtime segment persistence,
   synthetic capture CLI, restart restoration, and mismatch diagnostics
+- Privacy-safe setup rendering: successful and dry-run filesystem outcomes use
+  paths relative to the selected workspace root, and setup errors remain
+  classified without exposing raw filesystem causes
 
 ## Package Map
 
@@ -58,7 +63,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-First joint end-to-end capture validation. Do not restore the stash automatically.
+Review this correction and its rerun safety audit. Transcription planning is the
+next milestone only after that review. Do not restore the stash automatically.
 
 ## Verification
 

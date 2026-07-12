@@ -122,10 +122,10 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	ctx := context.Background()
 	if dryRun.value {
 		result, err := service.PlanWorkspaceInitialization(ctx, req)
-		return renderPlan(result, err, stdout, stderr)
+		return renderPlan(result, err, root.value, stdout, stderr)
 	}
 	result, err := service.InitializeWorkspace(ctx, req)
-	return renderExecution(result, err, "Initialization", stdout, stderr)
+	return renderExecution(result, err, "Initialization", root.value, stdout, stderr)
 }
 
 func runCourse(args []string, stdout, stderr io.Writer) int {
@@ -160,10 +160,10 @@ func runCourse(args []string, stdout, stderr io.Writer) int {
 	ctx := context.Background()
 	if dryRun.value {
 		result, err := service.PlanCourseCreation(ctx, req)
-		return renderPlan(result, err, stdout, stderr)
+		return renderPlan(result, err, root.value, stdout, stderr)
 	}
 	result, err := service.CreateCourse(ctx, req)
-	return renderExecution(result, err, "Course creation", stdout, stderr)
+	return renderExecution(result, err, "Course creation", root.value, stdout, stderr)
 }
 
 func runModule(args []string, stdout, stderr io.Writer) int {
@@ -213,10 +213,10 @@ func runModule(args []string, stdout, stderr io.Writer) int {
 	ctx := context.Background()
 	if dryRun.value {
 		result, err := service.PlanModuleCreation(ctx, req)
-		return renderPlan(result, err, stdout, stderr)
+		return renderPlan(result, err, root.value, stdout, stderr)
 	}
 	result, err := service.CreateModule(ctx, req)
-	return renderExecution(result, err, "Module creation", stdout, stderr)
+	return renderExecution(result, err, "Module creation", root.value, stdout, stderr)
 }
 
 // newService wires the production application service using the CLI clock seam
