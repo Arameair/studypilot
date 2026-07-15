@@ -7,8 +7,7 @@ material private and creates public documents only as reviewed derivatives.
 
 ## Repository Location
 
-The canonical repository is `~/projects/studypilot`; the current compatibility
-workspace path is `~/projects/scribe`.
+Use the canonical StudyPilot checkout selected by the development workspace.
 
 ## Architecture Rules
 
@@ -48,10 +47,10 @@ real vaults.
 
 ## Current Milestone
 
-The initial local GUI architecture is implemented. Path-free application read
-models feed a versioned loopback-only API and an embedded dashboard/module/
-session shell. Mutations retain existing revision and authority checks, and all
-validation uses temporary workspaces and synthetic content.
+The minimal browser workflow is implemented and validated end to end with
+synthetic capture and transcription. It covers selection, session creation,
+two finalized segments, transcription, notes, artifacts, explicit completion,
+conflicts, cancellation, and server restart continuity.
 
 ## Session Stash Warning
 
@@ -60,12 +59,11 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-Implement **Minimal session and capture GUI workflow**. Improve the actual
-interaction flow and prepare a separately approved real course usability test.
-Keep the GUI thin; do not add a desktop wrapper, remote access, browser
-microphone, asset upload, Markdown editor, persistent/background workers, AI
-features, publication automation, or real-vault tests, and do not apply the
-stash.
+Conduct a separately approved **Real course usability test and workflow
+corrections**. Record concrete interaction and recovery defects, then make
+focused corrections. Do not add desktop packaging, remote access, browser
+microphone, asset upload, Markdown editing, persistent/background workers, AI
+features, publication automation, or apply the stash.
 
 ## Real-Vault Safety Rule
 

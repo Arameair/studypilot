@@ -8,39 +8,74 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header><h1>StudyPilot</h1><p>Private local learning workspace</p></header>
-  <nav aria-label="Primary"><button id="dashboard-nav">Dashboard</button><span id="revision">Revision —</span></nav>
+  <header>
+    <div><h1>StudyPilot</h1><p>Private local study-session controls</p></div>
+    <span id="revision" aria-label="Current runtime revision">Revision —</span>
+  </header>
+  <nav aria-label="Primary navigation">
+    <button id="courses-nav" type="button">Courses</button>
+    <button id="module-nav" type="button" hidden>Current module</button>
+  </nav>
   <main>
-    <section id="status" role="status" aria-live="polite">Loading StudyPilot…</section>
-    <section id="dashboard" aria-labelledby="dashboard-title">
-      <h2 id="dashboard-title">Dashboard</h2>
-      <div id="dashboard-summary"></div>
-      <h3>Courses and modules</h3><div id="courses"></div>
-      <h3>Unfinished sessions</h3><div id="unfinished-sessions"></div>
-      <h3>Pending transcription work</h3><div id="pending-transcripts"></div>
-      <h3>Transcription failures</h3><div id="failed-transcripts"></div>
+    <div id="status" role="status" aria-live="polite">Loading StudyPilot…</div>
+    <div id="error" role="alert" aria-live="assertive" hidden></div>
+
+    <section id="courses-view" aria-labelledby="courses-title">
+      <h2 id="courses-title">Choose a course</h2>
+      <p>Select a course, then open one of its modules.</p>
+      <div id="courses-loading" class="loading" hidden>Loading courses…</div>
+      <div id="course-list" class="card-grid"></div>
+      <section id="modules-panel" hidden aria-labelledby="modules-title">
+        <h3 id="modules-title">Modules</h3>
+        <button id="back-to-courses" type="button">Return to course list</button>
+        <div id="modules-loading" class="loading" hidden>Loading modules…</div>
+        <div id="module-list" class="card-grid"></div>
+      </section>
     </section>
+
     <section id="module-view" hidden aria-labelledby="module-title">
-      <h2 id="module-title">Module</h2><div id="module-summary"></div><div id="module-sessions"></div>
+      <div class="view-heading"><div><p class="eyebrow">Module workspace</p><h2 id="module-title">Module</h2></div><button id="module-back" type="button">Return to course list</button></div>
+      <div id="module-loading" class="loading" hidden>Loading session list and artifacts…</div>
+      <p id="module-summary"></p>
+      <form id="create-session-form">
+        <label for="session-title">New session title</label>
+        <div class="form-row"><input id="session-title" name="title" maxlength="160" required autocomplete="off"><button id="create-session" type="submit">Create session</button></div>
+        <small>A unique session identity is generated independently from the title.</small>
+      </form>
+      <div class="controls"><button id="create-module-notes" type="button">Create module notes</button></div>
+      <div id="session-groups"></div>
+      <section aria-labelledby="module-diagnostics-title"><h3 id="module-diagnostics-title">Module diagnostics</h3><div id="module-issues"></div></section>
     </section>
-    <section id="session-view" hidden aria-labelledby="session-title">
-      <h2 id="session-title">Session</h2>
-      <div id="session-identity"></div><div id="session-status"></div>
-      <h3>Capture</h3><div id="capture-status"></div>
-      <div class="controls">
-        <button data-action="start-session">Start session</button>
-        <button data-action="start-capture">Start recording</button>
-        <button data-action="pause-capture">Pause</button>
-        <button data-action="resume-capture">Resume</button>
-        <button data-action="stop-capture">Stop recording</button>
-        <button data-action="complete-session">Complete session</button>
-        <button data-action="create-session-notes">Create session notes</button>
-        <button data-action="refresh-artifacts">Refresh artifacts</button>
-      </div>
-      <h3>Finalized segments and transcription</h3><div id="segments"></div>
-      <h3>Notes and assets</h3><div id="artifacts"></div>
+
+    <section id="session-view" hidden aria-labelledby="session-title-heading">
+      <div class="view-heading"><div><p class="eyebrow" id="session-breadcrumb"></p><h2 id="session-title-heading">Session</h2></div><button id="session-back" type="button">Return to module</button></div>
+      <div id="session-loading" class="loading" hidden>Loading authoritative session state…</div>
+      <dl id="session-overview" class="summary-grid"></dl>
+      <details><summary>Session identifiers</summary><div id="session-identifiers"></div></details>
+
+      <section aria-labelledby="session-controls-title"><h3 id="session-controls-title">Session</h3><div class="controls">
+        <button data-action="start-session" type="button">Start Session</button>
+        <button data-action="complete-session" type="button">Complete Session</button>
+      </div></section>
+
+      <section aria-labelledby="capture-title"><h3 id="capture-title">Capture</h3><p id="capture-status"></p><div class="controls">
+        <button data-action="start-capture" type="button">Start Recording</button>
+        <button data-action="pause-capture" type="button">Pause</button>
+        <button data-action="resume-capture" type="button">Resume</button>
+        <button data-action="stop-capture" type="button">Stop Recording</button>
+      </div><div id="capture-issues"></div></section>
+
+      <section aria-labelledby="segments-title"><h3 id="segments-title">Segments and transcription</h3><div id="transcription-capability"></div><div id="transcription-progress" role="status" aria-live="polite" hidden></div><button id="cancel-transcription" type="button" hidden>Cancel transcription request</button><div id="segments"></div></section>
+
+      <section aria-labelledby="notes-title"><h3 id="notes-title">Notes</h3><div id="notes-status"></div><button data-action="create-session-notes" type="button">Create Session Notes</button></section>
+
+      <section aria-labelledby="artifacts-title"><h3 id="artifacts-title">Artifacts and diagnostics</h3><div class="controls"><button data-action="refresh-artifacts" type="button">Refresh Artifact Index</button><button data-action="inspect-artifacts" type="button">Inspect Artifacts</button></div><div id="artifact-loading" class="loading" hidden>Inspecting artifacts…</div><div id="artifacts"></div><div id="artifact-issues"></div></section>
     </section>
   </main>
+
+  <dialog id="confirmation-dialog" aria-labelledby="confirmation-title" aria-describedby="confirmation-message">
+    <form method="dialog"><h2 id="confirmation-title">Confirm action</h2><p id="confirmation-message"></p><div class="controls"><button value="cancel">Cancel</button><button id="confirmation-accept" value="confirm">Confirm</button></div></form>
+  </dialog>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

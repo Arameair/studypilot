@@ -121,7 +121,7 @@ automation, or real-vault test.
 
 ## Next milestone
 
-The next milestone is **Minimal session and capture GUI workflow**.
+The next milestone is **Real course usability test and workflow corrections**.
 The intended sequence is:
 
 ```text
@@ -129,4 +129,6 @@ study artifact organization
 → initial local GUI
 → minimal session and capture GUI workflow
 → real course usability test
+→ workflow corrections
+→ optional desktop packaging
 ```

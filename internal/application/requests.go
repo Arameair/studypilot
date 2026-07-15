@@ -154,4 +154,5 @@ type RefreshStudyArtifactIndexRequest struct {
 type ListCoursesRequest struct{ Root string }
 type ListModulesRequest struct{ Root, CourseRef string }
 type DashboardRequest struct{ Root string }
+type ModuleWorkspaceRequest struct{ Root, CourseRef, ModuleRef string }
 type SessionWorkspaceRequest struct{ Root, CourseRef, ModuleRef, SessionRef string }

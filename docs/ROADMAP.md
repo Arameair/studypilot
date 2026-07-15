@@ -115,9 +115,16 @@ workspace models, embedded dependency-free frontend assets, revision-aware
 controls, safe errors, same-origin controls, and bounded shutdown are complete.
 The GUI remains an adapter over `internal/application`.
 
-## Next Milestone — Minimal session and capture GUI workflow (future)
-Improve the actual interaction flow and prepare for a separately approved real
-course usability test without moving authority into the UI.
+## Minimal Session and Capture GUI Workflow (complete)
+Course/module navigation, application-owned session creation, explicit session
+and capture controls, finalized-segment transcription, notes and artifact
+diagnostics, loading/confirmation/conflict UX, refresh/restart continuity, and
+the isolated synthetic HTTP validation harness are complete.
+
+## Next Milestone — Real course usability test and workflow corrections (future)
+Use separately approved course material to identify and correct workflow
+friction. Do not treat this as approval for publication, AI features, or broad
+desktop packaging.
 
 ## Phase 19 — Asset Import and Routing (complete)
 Safe bounded private module/session asset registration is part of study artifact

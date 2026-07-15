@@ -95,7 +95,12 @@ func guiTranscriptionConfig() (application.TranscriptionExecutionConfig, error) 
 	selection := strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_BACKEND"))
 	model := strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_MODEL_ID"))
 	if selection == "" {
-		selection, model = "synthetic", "synthetic/deterministic"
+		return application.TranscriptionExecutionConfig{}, nil
+	}
+	if selection == "local" && (strings.TrimSpace(os.Getenv("STUDYPILOT_PYTHON")) == "" || strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_WORKER")) == "" || strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_MODEL")) == "") {
+		// An unavailable local worker is a UI capability state, not a reason to
+		// prevent the loopback GUI from starting.
+		return application.TranscriptionExecutionConfig{}, nil
 	}
 	if model == "" {
 		model = "configured"

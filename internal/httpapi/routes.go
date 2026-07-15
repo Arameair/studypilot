@@ -17,6 +17,9 @@ type noteRequest struct {
 	Title            string `json:"title"`
 	ExpectedRevision uint64 `json:"expected_artifact_revision"`
 }
+type createSessionRequest struct {
+	Title string `json:"title"`
+}
 type transcriptionRequest struct {
 	SegmentID        string `json:"segment_id"`
 	Backend          string `json:"backend"`
@@ -57,6 +60,10 @@ func (a *api) serveAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 5 && parts[0] == "courses" && parts[2] == "modules" && parts[4] == "sessions" {
 		a.moduleSessions(w, r, parts[1], parts[3])
+		return
+	}
+	if len(parts) == 5 && parts[0] == "courses" && parts[2] == "modules" && parts[4] == "workspace" {
+		a.moduleWorkspace(w, r, parts[1], parts[3])
 		return
 	}
 	if len(parts) >= 4 && parts[0] == "sessions" {
@@ -104,23 +111,46 @@ func (a *api) modules(w http.ResponseWriter, r *http.Request, course string) {
 	writeJSON(w, http.StatusOK, map[string]any{"modules": moduleDTOs(result)})
 }
 func (a *api) moduleSessions(w http.ResponseWriter, r *http.Request, course, module string) {
+	switch r.Method {
+	case http.MethodGet:
+		result, err := a.application.InspectModuleSessions(r.Context(), application.InspectModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module})
+		if err != nil {
+			writeApplicationError(w, err)
+			return
+		}
+		sessions := make([]sessionSummaryDTO, 0, len(result.Sessions))
+		for _, value := range result.Sessions {
+			sessions = append(sessions, newSessionSummaryDTO(value))
+		}
+		issues := sessionScanIssueDTOs(result.Issues)
+		writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions, "issues": issues})
+	case http.MethodPost:
+		var request createSessionRequest
+		if !decodeJSON(w, r, &request) {
+			return
+		}
+		result, err := a.application.CreateSession(r.Context(), application.CreateSessionRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, Title: request.Title})
+		if err != nil {
+			writeApplicationError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, newSessionDTO(result))
+	default:
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "The HTTP method is not allowed for this endpoint.", false)
+	}
+}
+
+func (a *api) moduleWorkspace(w http.ResponseWriter, r *http.Request, course, module string) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	result, err := a.application.InspectModuleSessions(r.Context(), application.InspectModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module})
+	result, err := a.application.GetModuleWorkspace(r.Context(), application.ModuleWorkspaceRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
 	}
-	sessions := make([]sessionSummaryDTO, 0, len(result.Sessions))
-	for _, value := range result.Sessions {
-		sessions = append(sessions, newSessionSummaryDTO(value))
-	}
-	issues := make([]sessionScanIssueDTO, 0, len(result.Issues))
-	for _, issue := range result.Issues {
-		issues = append(issues, sessionScanIssueDTO{issue.Directory, issue.Kind, issue.Message, issue.Recoverable})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions, "issues": issues})
+	writeJSON(w, http.StatusOK, moduleWorkspaceDTO(result))
 }
 
 func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []string) {
@@ -135,7 +165,12 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 			return
 		}
 		response := workspaceDTO(result)
-		response["transcription_execution"] = map[string]any{"available": a.config.TranscriptionBackend != "" && a.config.TranscriptionModel != "", "backend": a.config.TranscriptionBackend, "model": a.config.TranscriptionModel}
+		available := a.config.TranscriptionBackend != "" && a.config.TranscriptionModel != ""
+		status, issue := "ready", ""
+		if !available {
+			status, issue = "unavailable", "Transcription is not configured for this GUI process."
+		}
+		response["transcription_execution"] = map[string]any{"available": available, "backend": a.config.TranscriptionBackend, "model": a.config.TranscriptionModel, "status": status, "issue": issue}
 		writeJSON(w, http.StatusOK, response)
 		return
 	}

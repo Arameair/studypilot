@@ -2,10 +2,10 @@
 
 ## Current Milestone
 
-The Initial Local GUI Architecture exposes UI-neutral application read models
-through a versioned, loopback-only HTTP API and a dependency-free embedded
-browser shell. It preserves all existing session, capture, transcription, and
-study-artifact authorities while adding safe local navigation and controls.
+The Minimal Session and Capture GUI Workflow provides a complete local browser
+control surface from course/module selection and session creation through two
+capture segments, transcription, notes, artifact inspection, explicit session
+completion, and restart continuity.
 
 ## Completed Capabilities
 
@@ -74,6 +74,10 @@ study-artifact authorities while adding safe local navigation and controls.
   HTTP endpoints; embedded dashboard/module/session views; revision-aware
   session, capture, transcription, note, and artifact controls; bounded graceful
   shutdown; and additive `studypilot gui` loopback composition
+- Bounded module workspaces, browser session creation, application-derived
+  control reasons, separate loading states, terminal-action confirmations,
+  duplicate-mutation guards, conflict refresh, cancellation-aware synchronous
+  transcription, and a passing temporary two-segment GUI validation harness
 
 ## Package Map
 
@@ -104,9 +108,9 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-**Minimal session and capture GUI workflow**. Improve the actual local
-interaction flow while retaining the application boundary, then prepare a
-separately approved real course usability test.
+**Real course usability test and workflow corrections**. Exercise the proven
+local workflow with separately approved course material, record friction and
+recovery findings, and make focused corrections without expanding architecture.
 
 ## Verification
 

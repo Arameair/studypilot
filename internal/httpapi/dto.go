@@ -22,13 +22,19 @@ type segmentDTO struct {
 	Status                     studyruntime.SegmentStatus `json:"status"`
 	AudioPath                  string                     `json:"audio_path,omitempty"`
 	DurationMillis             int64                      `json:"duration_millis"`
+	AudioSizeBytes             int64                      `json:"audio_size_bytes,omitempty"`
 	TranscriptionStatus        string                     `json:"transcription_status"`
+	QueueStatus                string                     `json:"queue_status,omitempty"`
 	Attempt                    int                        `json:"attempt,omitempty"`
 	MaxAttempts                int                        `json:"max_attempts,omitempty"`
 	Language                   string                     `json:"language,omitempty"`
 	CanTranscribe              bool                       `json:"can_transcribe"`
+	TranscriptionReason        string                     `json:"transcription_reason,omitempty"`
 	TranscriptJSONRelativePath string                     `json:"transcript_json_relative_path,omitempty"`
 	TranscriptTextRelativePath string                     `json:"transcript_text_relative_path,omitempty"`
+	ProvenanceRelativePath     string                     `json:"provenance_relative_path,omitempty"`
+	JobMetadataRelativePath    string                     `json:"job_metadata_relative_path,omitempty"`
+	LastErrorCode              string                     `json:"last_error_code,omitempty"`
 }
 type captureSegmentDTO struct {
 	ID           string                     `json:"id,omitempty"`
@@ -62,14 +68,14 @@ type sessionScanIssueDTO struct {
 func courseDTOs(values []application.CourseSummary) []map[string]any {
 	out := make([]map[string]any, 0, len(values))
 	for _, v := range values {
-		out = append(out, map[string]any{"id": v.ID, "name": v.Name, "slug": v.Slug, "modules": v.Modules})
+		out = append(out, map[string]any{"id": v.ID, "name": v.Name, "slug": v.Slug, "modules": v.Modules, "unfinished_sessions": v.UnfinishedSessions})
 	}
 	return out
 }
 func moduleDTOs(values []application.ModuleSummary) []map[string]any {
 	out := make([]map[string]any, 0, len(values))
 	for _, v := range values {
-		out = append(out, map[string]any{"id": v.ID, "course_id": v.CourseID, "name": v.Name, "slug": v.Slug, "number": v.Number, "sessions": v.Sessions})
+		out = append(out, map[string]any{"id": v.ID, "course_id": v.CourseID, "name": v.Name, "slug": v.Slug, "number": v.Number, "sessions": v.Sessions, "unfinished_sessions": v.UnfinishedSessions, "transcript_count": v.TranscriptCount, "artifact_issues": v.ArtifactIssues, "module_notes_exists": v.ModuleNotesExists})
 	}
 	return out
 }
@@ -90,10 +96,14 @@ func newSessionDTO(value application.SessionResult) map[string]any {
 		dto := segmentDTO{ID: segment.ID, Number: segment.Number, Status: segment.Status, AudioPath: segment.AudioPath, DurationMillis: segment.Duration.Milliseconds(), TranscriptionStatus: status, CanTranscribe: can}
 		if ok {
 			dto.TranscriptionStatus = state.JobStatus
+			dto.QueueStatus = state.QueueStatus
 			dto.Attempt = state.Attempt
 			dto.MaxAttempts = state.MaxAttempts
 			dto.TranscriptJSONRelativePath = state.TranscriptJSONRelativePath
 			dto.TranscriptTextRelativePath = state.TranscriptTextRelativePath
+			dto.ProvenanceRelativePath = state.ProvenanceRelativePath
+			dto.JobMetadataRelativePath = state.JobMetadataRelativePath
+			dto.LastErrorCode = state.LastErrorCode
 		}
 		segments = append(segments, dto)
 	}
@@ -114,12 +124,21 @@ func workspaceDTO(value application.SessionWorkspaceResult) map[string]any {
 	session := newSessionDTO(value.Session)
 	segments := session["segments"].([]segmentDTO)
 	bySegment := map[string]*studyartifact.TranscriptReference{}
+	segmentSizes := map[string]int64{}
+	for _, captured := range value.Capture.Finalized {
+		segmentSizes[captured.ID] = captured.BytesWritten
+	}
 	for _, artifact := range value.Artifacts {
 		if artifact.Type == studyartifact.TypeTranscript {
 			bySegment[artifact.Scope.SegmentID] = artifact.Transcript
 		}
 	}
 	for index := range segments {
+		segments[index].AudioSizeBytes = segmentSizes[segments[index].ID]
+		if eligibility, ok := value.TranscriptionControls[segments[index].ID]; ok {
+			segments[index].CanTranscribe = eligibility.Allowed
+			segments[index].TranscriptionReason = eligibility.Reason
+		}
 		if transcript := bySegment[segments[index].ID]; transcript != nil {
 			segments[index].Language = transcript.Language
 			segments[index].DurationMillis = transcript.DurationMillis
@@ -127,7 +146,23 @@ func workspaceDTO(value application.SessionWorkspaceResult) map[string]any {
 		}
 	}
 	session["segments"] = segments
-	return map[string]any{"course": map[string]any{"id": value.Course.ID, "name": value.Course.Name, "slug": value.Course.Slug}, "module": map[string]any{"id": value.Module.ID, "course_id": value.Module.CourseID, "name": value.Module.Name, "slug": value.Module.Slug, "number": value.Module.Number, "sessions": value.Module.Sessions}, "session": session, "controls": map[string]bool{"start_session": value.Controls.StartSession, "start_capture": value.Controls.StartCapture, "pause_capture": value.Controls.PauseCapture, "resume_capture": value.Controls.ResumeCapture, "stop_capture": value.Controls.StopCapture, "complete_session": value.Controls.CompleteSession}, "capture": captureInspectionDTO(value.Capture), "transcription": transcriptionInspectionDTO(value.Transcription), "artifacts": value.Artifacts, "artifact_revision": value.ArtifactRevision, "artifact_issues": value.ArtifactIssues, "notes": notes}
+	return map[string]any{"course": map[string]any{"id": value.Course.ID, "name": value.Course.Name, "slug": value.Course.Slug}, "module": map[string]any{"id": value.Module.ID, "course_id": value.Module.CourseID, "name": value.Module.Name, "slug": value.Module.Slug, "number": value.Module.Number, "sessions": value.Module.Sessions}, "session": session, "controls": map[string]bool{"start_session": value.Controls.StartSession, "start_capture": value.Controls.StartCapture, "pause_capture": value.Controls.PauseCapture, "resume_capture": value.Controls.ResumeCapture, "stop_capture": value.Controls.StopCapture, "complete_session": value.Controls.CompleteSession, "create_session_notes": value.CreateSessionNotes.Allowed, "refresh_artifacts": true, "inspect_artifacts": true}, "control_reasons": value.ControlReasons, "capture": captureInspectionDTO(value.Capture), "transcription": transcriptionInspectionDTO(value.Transcription), "artifacts": value.Artifacts, "artifact_revision": value.ArtifactRevision, "artifact_issues": value.ArtifactIssues, "notes": notes}
+}
+
+func sessionScanIssueDTOs(values []application.SessionScanIssue) []sessionScanIssueDTO {
+	issues := make([]sessionScanIssueDTO, 0, len(values))
+	for _, issue := range values {
+		issues = append(issues, sessionScanIssueDTO{issue.Directory, issue.Kind, issue.Message, issue.Recoverable})
+	}
+	return issues
+}
+
+func moduleWorkspaceDTO(value application.ModuleWorkspaceResult) map[string]any {
+	sessions := make([]map[string]any, 0, len(value.Sessions))
+	for _, session := range value.Sessions {
+		sessions = append(sessions, map[string]any{"id": session.ID, "course_id": session.CourseID, "module_id": session.ModuleID, "number": session.Number, "title": session.Title, "session_status": session.SessionStatus, "capture_status": session.CaptureStatus, "revision": session.Revision, "finalized_segments": session.FinalizedSegments, "transcription_status": session.TranscriptionStatus, "notes_exists": session.NotesExists, "note_relative_path": session.NoteRelativePath, "linked_transcript_count": session.LinkedTranscriptCount, "artifact_issues": session.ArtifactIssues, "updated_at": session.UpdatedAt})
+	}
+	return map[string]any{"course": courseDTOs([]application.CourseSummary{value.Course})[0], "module": moduleDTOs([]application.ModuleSummary{value.Module})[0], "sessions": sessions, "session_issues": sessionScanIssueDTOs(value.SessionIssues), "artifacts": value.Artifacts, "artifact_revision": value.ArtifactRevision, "artifact_issues": value.ArtifactIssues}
 }
 func captureInspectionDTO(v application.CaptureInspectionResult) map[string]any {
 	finalized := make([]captureSegmentDTO, 0, len(v.Finalized))
@@ -171,7 +206,7 @@ func newCaptureSegmentDTO(value application.CaptureSegmentResult) captureSegment
 	return captureSegmentDTO{ID: value.ID, Number: value.Number, Status: value.Status, RelativePath: value.RelativePath, BytesWritten: value.BytesWritten}
 }
 func executeTranscriptionDTO(v application.ExecuteTranscriptionResult) map[string]any {
-	return map[string]any{"job_id": v.JobID, "segment_id": v.SegmentID, "segment_number": v.SegmentNumber, "job_status": v.JobStatus, "queue_status": v.QueueStatus, "attempt": v.Attempt, "max_attempts": v.MaxAttempts, "runtime_revision": v.RuntimeRevision, "transcript_json_relative_path": v.TranscriptJSONRelativePath, "transcript_text_relative_path": v.TranscriptTextRelativePath, "provenance_relative_path": v.ProvenanceRelativePath, "job_metadata_relative_path": v.JobMetadataRelativePath, "language": v.Language, "duration_millis": v.DurationMillis, "completed": v.Completed, "durability_warning": v.DurabilityWarning}
+	return map[string]any{"job_id": v.JobID, "segment_id": v.SegmentID, "segment_number": v.SegmentNumber, "job_status": v.JobStatus, "queue_status": v.QueueStatus, "attempt": v.Attempt, "max_attempts": v.MaxAttempts, "segment_count": v.SegmentCount, "word_count": v.WordCount, "runtime_revision": v.RuntimeRevision, "transcript_json_relative_path": v.TranscriptJSONRelativePath, "transcript_text_relative_path": v.TranscriptTextRelativePath, "provenance_relative_path": v.ProvenanceRelativePath, "job_metadata_relative_path": v.JobMetadataRelativePath, "language": v.Language, "duration_millis": v.DurationMillis, "completed": v.Completed, "durability_warning": v.DurabilityWarning}
 }
 func artifactMutationDTO(v application.StudyArtifactMutationResult) map[string]any {
 	return map[string]any{"artifact": v.Artifact, "revision": v.Revision, "durability_warning": v.DurabilityWarning}

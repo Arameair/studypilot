@@ -1,6 +1,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/Arameair/studypilot/internal/filesystem"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 	"github.com/Arameair/studypilot/internal/studyartifact"
@@ -176,14 +178,41 @@ type StudyArtifactRefreshResult struct {
 }
 
 type CourseSummary struct {
-	ID, Name, Slug string
-	Modules        int
+	ID, Name, Slug              string
+	Modules, UnfinishedSessions int
 }
 
 type ModuleSummary struct {
-	ID, CourseID, Name, Slug string
-	Number                   int
-	Sessions                 int
+	ID, CourseID, Name, Slug                                      string
+	Number                                                        int
+	Sessions, UnfinishedSessions, TranscriptCount, ArtifactIssues int
+	ModuleNotesExists                                             bool
+}
+
+type ControlEligibility struct {
+	Allowed bool
+	Reason  string
+}
+
+type SessionWorkspaceSummary struct {
+	SessionSummary
+	FinalizedSegments     int
+	TranscriptionStatus   studyruntime.TranscriptionStatus
+	NotesExists           bool
+	NoteRelativePath      string
+	LinkedTranscriptCount int
+	ArtifactIssues        int
+	UpdatedAt             time.Time
+}
+
+type ModuleWorkspaceResult struct {
+	Course           CourseSummary
+	Module           ModuleSummary
+	Sessions         []SessionWorkspaceSummary
+	SessionIssues    []SessionScanIssue
+	Artifacts        []studyartifact.Record
+	ArtifactRevision uint64
+	ArtifactIssues   []studyartifact.Issue
 }
 
 type SessionControls struct {
@@ -191,15 +220,18 @@ type SessionControls struct {
 }
 
 type SessionWorkspaceResult struct {
-	Course           CourseSummary
-	Module           ModuleSummary
-	Session          SessionResult
-	Controls         SessionControls
-	Capture          CaptureInspectionResult
-	Transcription    TranscriptionInspectionResult
-	Artifacts        []studyartifact.Record
-	ArtifactRevision uint64
-	ArtifactIssues   []studyartifact.Issue
+	Course                CourseSummary
+	Module                ModuleSummary
+	Session               SessionResult
+	Controls              SessionControls
+	Capture               CaptureInspectionResult
+	Transcription         TranscriptionInspectionResult
+	Artifacts             []studyartifact.Record
+	ArtifactRevision      uint64
+	ArtifactIssues        []studyartifact.Issue
+	ControlReasons        map[string]string
+	TranscriptionControls map[string]ControlEligibility
+	CreateSessionNotes    ControlEligibility
 }
 
 type DashboardTranscription struct {

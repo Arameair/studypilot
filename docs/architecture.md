@@ -6,7 +6,9 @@ packages`. HTTP handlers own transport validation and path-free DTO mapping but
 hold no repository, filesystem, capture, transcription, artifact, or workflow
 authority. Static assets are embedded in the binary with no frontend runtime or
 remote dependency. See [gui-architecture.md](gui-architecture.md) and
-[http-api.md](http-api.md).
+[http-api.md](http-api.md). The complete revision-aware browser workflow and
+temporary validation boundary are documented in
+[gui-workflow.md](gui-workflow.md).
 
 Transcription follows `CLI/future GUI → internal/application →
 internal/transcription → queue/backend`. `internal/runtime` owns its safe

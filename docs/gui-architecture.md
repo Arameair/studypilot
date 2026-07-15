@@ -47,11 +47,10 @@ again by the application layer.
 
 ## Frontend workflow
 
-The initial shell has dashboard, module, and session views. It displays session
-and capture state, finalized segments, transcription summaries, note and asset
-metadata, relative artifact paths, and safe issue codes. It offers session,
-capture, synchronous transcription, note-template creation, and artifact
-refresh controls through `/api/v1`.
+The usable shell has course selection, module workspaces, session creation and
+selection, and a primary session control view. It displays capture state,
+finalized segments, transcription summaries, note and asset metadata, relative
+artifact paths, and safe diagnostics. See [gui-workflow.md](gui-workflow.md).
 
 After every mutation the frontend reloads authoritative state. It sends the
 current expected runtime or artifact revision and refreshes after a `409`
@@ -85,6 +84,4 @@ usability test.
 
 ## Next milestone
 
-The next milestone is **Minimal session and capture GUI workflow**, focused on
-improving the real interaction flow and preparing a separately approved real
-course usability test.
+The next milestone is **Real course usability test and workflow corrections**.

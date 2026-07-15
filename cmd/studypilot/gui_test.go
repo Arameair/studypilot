@@ -36,6 +36,28 @@ func TestGUIStartsSafelyAndStopsOnCancellation(t *testing.T) {
 	}
 }
 
+func TestGUITranscriptionRequiresExplicitConfiguration(t *testing.T) {
+	for _, name := range []string{"STUDYPILOT_TRANSCRIPTION_BACKEND", "STUDYPILOT_TRANSCRIPTION_MODEL_ID"} {
+		t.Setenv(name, "")
+	}
+	config, err := guiTranscriptionConfig()
+	if err != nil || config.BackendName != "" || config.ModelID != "" {
+		t.Fatalf("default config=%+v err=%v", config, err)
+	}
+	t.Setenv("STUDYPILOT_TRANSCRIPTION_BACKEND", "synthetic")
+	t.Setenv("STUDYPILOT_TRANSCRIPTION_MODEL_ID", "synthetic/deterministic")
+	config, err = guiTranscriptionConfig()
+	if err != nil || config.BackendName != "synthetic" || config.ModelID != "synthetic/deterministic" {
+		t.Fatalf("explicit synthetic config=%+v err=%v", config, err)
+	}
+	t.Setenv("STUDYPILOT_TRANSCRIPTION_BACKEND", "local")
+	t.Setenv("STUDYPILOT_TRANSCRIPTION_MODEL_ID", "base.en")
+	config, err = guiTranscriptionConfig()
+	if err != nil || config.BackendName != "" {
+		t.Fatalf("unavailable local config=%+v err=%v", config, err)
+	}
+}
+
 type closedBySignalListener struct {
 	closed chan struct{}
 	once   sync.Once

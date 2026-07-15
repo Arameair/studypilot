@@ -26,9 +26,16 @@ func TestGUIReadModelsUseAuthoritativePathFreeState(t *testing.T) {
 	if err != nil || len(courses) != 1 || courses[0].Modules != 1 {
 		t.Fatalf("courses=%+v err=%v", courses, err)
 	}
+	if courses[0].UnfinishedSessions != 1 {
+		t.Fatalf("unfinished courses=%+v", courses)
+	}
 	modules, err := service.ListModules(context.Background(), ListModulesRequest{Root: root, CourseRef: courses[0].ID})
 	if err != nil || len(modules) != 1 || modules[0].Sessions != 1 {
 		t.Fatalf("modules=%+v err=%v", modules, err)
+	}
+	moduleWorkspace, err := service.GetModuleWorkspace(context.Background(), ModuleWorkspaceRequest{Root: root, CourseRef: courses[0].ID, ModuleRef: modules[0].ID})
+	if err != nil || len(moduleWorkspace.Sessions) != 1 || moduleWorkspace.Sessions[0].ID != created.ID || moduleWorkspace.Artifacts == nil || moduleWorkspace.ArtifactIssues == nil {
+		t.Fatalf("module workspace=%+v err=%v", moduleWorkspace, err)
 	}
 	workspace, err := service.GetSessionWorkspace(context.Background(), SessionWorkspaceRequest{Root: root, CourseRef: courses[0].ID, ModuleRef: modules[0].ID, SessionRef: created.ID})
 	if err != nil || workspace.Session.ID != created.ID || !workspace.Controls.StartSession || workspace.Controls.StartCapture || workspace.ArtifactRevision != 0 {
@@ -37,16 +44,20 @@ func TestGUIReadModelsUseAuthoritativePathFreeState(t *testing.T) {
 	if workspace.Artifacts == nil || workspace.ArtifactIssues == nil || workspace.Transcription.RuntimeStates == nil {
 		t.Fatal("GUI collections must be stable empty arrays")
 	}
+	if !workspace.CreateSessionNotes.Allowed || workspace.TranscriptionControls == nil || workspace.ControlReasons["start_capture"] == "" {
+		t.Fatalf("eligibility=%+v", workspace)
+	}
 	dashboard, err := service.GetDashboard(context.Background(), DashboardRequest{Root: root})
 	if err != nil || dashboard.Courses != 1 || dashboard.Modules != 1 || len(dashboard.UnfinishedSessions) != 1 {
 		t.Fatalf("dashboard=%+v err=%v", dashboard, err)
 	}
 	encoded, _ := json.Marshal(struct {
-		Courses   []CourseSummary
-		Modules   []ModuleSummary
-		Workspace SessionWorkspaceResult
-		Dashboard DashboardResult
-	}{courses, modules, workspace, dashboard})
+		Courses         []CourseSummary
+		Modules         []ModuleSummary
+		Workspace       SessionWorkspaceResult
+		ModuleWorkspace ModuleWorkspaceResult
+		Dashboard       DashboardResult
+	}{courses, modules, workspace, moduleWorkspace, dashboard})
 	if strings.Contains(string(encoded), root) || strings.Contains(string(encoded), "transcript body") {
 		t.Fatal("GUI application model leaked private data")
 	}

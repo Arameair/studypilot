@@ -16,6 +16,7 @@ GET /api/v1/dashboard
 GET /api/v1/courses
 GET /api/v1/courses/{course}/modules
 GET /api/v1/courses/{course}/modules/{module}/sessions
+GET /api/v1/courses/{course}/modules/{module}/workspace
 GET /api/v1/sessions/{course}/{module}/{session}
 GET /api/v1/sessions/{course}/{module}/{session}/capture
 GET /api/v1/sessions/{course}/{module}/{session}/transcription
@@ -26,6 +27,7 @@ GET /api/v1/courses/{course}/modules/{module}/artifacts/inspect
 Mutation endpoints:
 
 ```text
+POST /api/v1/courses/{course}/modules/{module}/sessions
 POST /api/v1/sessions/{course}/{module}/{session}/start
 POST /api/v1/sessions/{course}/{module}/{session}/complete
 POST /api/v1/sessions/{course}/{module}/{session}/capture/start
@@ -47,6 +49,9 @@ underlying operation requires one. Artifact mutations carry
 `expected_artifact_revision`. Route IDs, language, backend, and model identities
 are bounded safe references; paths, executable values, worker arguments,
 transcript content, and uploads are not accepted.
+
+Session creation accepts only a bounded title. `internal/application` generates
+the identity and performs all title, collision, and filesystem validation.
 
 ## Error contract
 
@@ -112,4 +117,4 @@ The API has no authentication because it cannot bind remotely. It also has no
 desktop wrapper, browser microphone, file upload, Markdown editor, persistent
 queue, background worker, AI feature, or publication operation.
 
-The next milestone is **Minimal session and capture GUI workflow**.
+The next milestone is **Real course usability test and workflow corrections**.

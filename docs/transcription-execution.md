@@ -122,4 +122,6 @@ integration.
 The complete synthetic and real operator path is validated in
 [transcription-workflow-validation.md](transcription-workflow-validation.md).
 Study artifact organization and the initial local GUI architecture are now
-complete. The next milestone is **Minimal session and capture GUI workflow**.
+complete, and the minimal GUI workflow now validates two synchronous synthetic
+executions plus restart continuity. The next milestone is **Real course
+usability test and workflow corrections**.

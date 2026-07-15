@@ -39,12 +39,18 @@ func (f *fakeApplication) ListCourses(context.Context, application.ListCoursesRe
 func (f *fakeApplication) ListModules(context.Context, application.ListModulesRequest) ([]application.ModuleSummary, error) {
 	return []application.ModuleSummary{{ID: "module-1", CourseID: "course-1", Name: "Module", Slug: "module", Number: 1, Sessions: 1}}, nil
 }
+func (f *fakeApplication) GetModuleWorkspace(context.Context, application.ModuleWorkspaceRequest) (application.ModuleWorkspaceResult, error) {
+	return application.ModuleWorkspaceResult{Course: application.CourseSummary{ID: "course-1", Name: "Course", Modules: 1}, Module: application.ModuleSummary{ID: "module-1", CourseID: "course-1", Name: "Module", Number: 1, Sessions: 1}, Sessions: []application.SessionWorkspaceSummary{{SessionSummary: application.SessionSummary{ID: "session-1", CourseID: "course-1", ModuleID: "module-1", Number: 1, Title: "Session", SessionStatus: studyruntime.SessionStatusPlanned, CaptureStatus: studyruntime.CaptureStatusReady, Revision: 1}}}, SessionIssues: []application.SessionScanIssue{}, Artifacts: []studyartifact.Record{}, ArtifactIssues: []studyartifact.Issue{}}, nil
+}
 func (f *fakeApplication) InspectModuleSessions(context.Context, application.InspectModuleRequest) (application.SessionScanResult, error) {
 	return application.SessionScanResult{Sessions: []application.SessionSummary{{ID: "session-1", CourseID: "course-1", ModuleID: "module-1", Title: "Session", Number: 1, SessionStatus: studyruntime.SessionStatusPlanned, CaptureStatus: studyruntime.CaptureStatusReady, Revision: 1}}, Issues: []application.SessionScanIssue{}}, nil
 }
 func (f *fakeApplication) GetSessionWorkspace(context.Context, application.SessionWorkspaceRequest) (application.SessionWorkspaceResult, error) {
 	snapshot := studyruntime.Snapshot{SessionStatus: studyruntime.SessionStatusPlanned, CaptureStatus: studyruntime.CaptureStatusReady, TranscriptionStatus: studyruntime.TranscriptionStatusNotStarted, Segments: []studyruntime.SegmentSummary{}}
 	return application.SessionWorkspaceResult{Course: application.CourseSummary{ID: "course-1", Name: "Course", Slug: "course"}, Module: application.ModuleSummary{ID: "module-1", CourseID: "course-1", Name: "Module", Number: 1}, Session: application.SessionResult{ID: "session-1", CourseID: "course-1", ModuleID: "module-1", Title: "Session", Number: 1, Revision: 1, Snapshot: snapshot}, Controls: application.SessionControls{StartSession: true}, Artifacts: []studyartifact.Record{}, ArtifactIssues: []studyartifact.Issue{}}, nil
+}
+func (f *fakeApplication) CreateSession(context.Context, application.CreateSessionRequest) (application.SessionResult, error) {
+	return application.SessionResult{ID: "session-2", CourseID: "course-1", ModuleID: "module-1", Number: 2, Title: "Created session", Revision: 1, Snapshot: studyruntime.Snapshot{SessionStatus: studyruntime.SessionStatusPlanned, CaptureStatus: studyruntime.CaptureStatusReady, TranscriptionStatus: studyruntime.TranscriptionStatusNotStarted, Segments: []studyruntime.SegmentSummary{}}}, nil
 }
 func (f *fakeApplication) StartSession(_ context.Context, request application.UpdateSessionRequest) (application.SessionResult, error) {
 	f.mu.Lock()
@@ -139,11 +145,26 @@ func TestFrontendIsEmbeddedLocalAndPredictable(t *testing.T) {
 	script := request(t, handler, http.MethodGet, "/app.js", "")
 	missing := request(t, handler, http.MethodGet, "/unknown", "")
 	apiMissing := request(t, handler, http.MethodGet, "/api/v1/unknown", "")
-	if index.Code != 200 || !strings.Contains(index.Body.String(), "Start recording") || !strings.Contains(index.Body.String(), "Create session notes") {
+	for _, required := range []string{"Choose a course", "New session title", "Start Recording", "Create Session Notes", "Refresh Artifact Index", "confirmation-dialog", "role=\"alert\"", "session-loading"} {
+		if index.Code != 200 || !strings.Contains(index.Body.String(), required) {
+			t.Fatalf("index missing %q", required)
+		}
+	}
+	if strings.Contains(index.Body.String(), "transcript body") {
 		t.Fatal(index.Code)
 	}
 	if script.Code != 200 || strings.Contains(script.Body.String(), "https://") || strings.Contains(script.Body.String(), "http://") || strings.Contains(index.Body.String(), "cdn") {
 		t.Fatal("frontend contains external resource")
+	}
+	for _, required := range []string{"status === 409", "showModal", "beforeunload", "busy.has", "loadSession", "createSession", "refreshArtifacts"} {
+		if !strings.Contains(script.Body.String(), required) {
+			t.Errorf("frontend behavior missing %q", required)
+		}
+	}
+	for _, prohibited := range []string{"innerHTML", "eval(", "transcript_body"} {
+		if strings.Contains(script.Body.String(), prohibited) {
+			t.Errorf("frontend contains prohibited behavior %q", prohibited)
+		}
 	}
 	if missing.Code != 404 || apiMissing.Code != 404 || strings.Contains(apiMissing.Body.String(), "<!doctype") {
 		t.Fatal("unexpected fallback behavior")
@@ -157,6 +178,7 @@ func TestAPIRouteCoverage(t *testing.T) {
 		status             int
 	}{
 		{"GET", "/api/v1/dashboard", "", 200}, {"GET", "/api/v1/courses", "", 200}, {"GET", "/api/v1/courses/course-1/modules", "", 200}, {"GET", "/api/v1/courses/course-1/modules/module-1/sessions", "", 200}, {"GET", "/api/v1/sessions/course-1/module-1/session-1", "", 200},
+		{"GET", "/api/v1/courses/course-1/modules/module-1/workspace", "", 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/sessions", `{"title":"Created session"}`, 201},
 		{"POST", "/api/v1/sessions/course-1/module-1/session-1/complete", `{"expected_revision":1}`, 200}, {"GET", "/api/v1/sessions/course-1/module-1/session-1/capture", "", 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/start", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/pause", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/resume", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/stop", `{"expected_revision":1}`, 200},
 		{"GET", "/api/v1/sessions/course-1/module-1/session-1/transcription", "", 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/transcription/execute", `{"segment_id":"segment-1","backend":"synthetic","model":"synthetic/deterministic","language":"en","max_attempts":3,"expected_revision":1}`, 200},
 		{"GET", "/api/v1/courses/course-1/modules/module-1/artifacts", "", 200}, {"GET", "/api/v1/courses/course-1/modules/module-1/artifacts/inspect", "", 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/artifacts/refresh", `{"expected_artifact_revision":1}`, 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/notes/module", `{"title":"Module Notes","expected_artifact_revision":1}`, 201}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/notes/session", `{"title":"Session Notes","expected_artifact_revision":1}`, 201},
@@ -187,6 +209,8 @@ func TestStrictRequestsSafeErrorsAndOrigin(t *testing.T) {
 		{"invalid route", "GET", "/api/v1/courses/%2e%2e/modules", "", "", "", 400},
 		{"method", "DELETE", "/api/v1/health", "", "", "", 405},
 		{"cross origin", "GET", "/api/v1/health", "", "", "http://evil.example", 403},
+		{"session unknown field", "POST", "/api/v1/courses/course-1/modules/module-1/sessions", `{"title":"Session","path":"private"}`, "application/json", "", 400},
+		{"session wrong method", "PUT", "/api/v1/courses/course-1/modules/module-1/sessions", `{"title":"Session"}`, "application/json", "", 405},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -267,7 +291,7 @@ func TestCaptureMutationAndTranscriptionReadAreConcurrentSafe(t *testing.T) {
 func TestApplicationErrorNeverLeaksCause(t *testing.T) {
 	service := &errorApplication{fakeApplication: &fakeApplication{}}
 	recorder := request(t, newTestHandler(t, service), "GET", "/api/v1/dashboard", "")
-	if recorder.Code != 500 || strings.Contains(recorder.Body.String(), "/home/ara/private") || strings.Contains(recorder.Body.String(), "secret transcript") {
+	if recorder.Code != 500 || strings.Contains(recorder.Body.String(), "/private/absolute/workspace") || strings.Contains(recorder.Body.String(), "secret transcript") {
 		t.Fatal(recorder.Body.String())
 	}
 }
@@ -275,7 +299,7 @@ func TestApplicationErrorNeverLeaksCause(t *testing.T) {
 type errorApplication struct{ *fakeApplication }
 
 func (*errorApplication) GetDashboard(context.Context, application.DashboardRequest) (application.DashboardResult, error) {
-	return application.DashboardResult{}, errors.New("/home/ara/private secret transcript")
+	return application.DashboardResult{}, errors.New("/private/absolute/workspace secret transcript")
 }
 
 func TestValidateAddress(t *testing.T) {
@@ -330,6 +354,55 @@ func TestShutdownCancelsActiveRequest(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not stop")
 	}
+}
+
+func TestShutdownCancelsActiveTranscriptionRequest(t *testing.T) {
+	service := &blockingTranscriptionApplication{fakeApplication: &fakeApplication{}, started: make(chan struct{}), cancelled: make(chan struct{})}
+	handler, err := New(service, Config{CaptureBackend: "synthetic", TranscriptionBackend: "synthetic", TranscriptionModel: "synthetic/deterministic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConn, clientConn := net.Pipe()
+	listener := newSingleConnListener(serverConn)
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() { result <- Serve(ctx, listener, handler) }()
+	body := `{"segment_id":"segment-1","backend":"synthetic","model":"synthetic/deterministic","language":"en","max_attempts":3,"expected_revision":1}`
+	requestText := fmt.Sprintf("POST /api/v1/sessions/course-1/module-1/session-1/transcription/execute HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", len(body), body)
+	_, _ = io.WriteString(clientConn, requestText)
+	select {
+	case <-service.started:
+	case <-time.After(time.Second):
+		t.Fatal("transcription request did not start")
+	}
+	cancel()
+	select {
+	case <-service.cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("transcription context was not cancelled")
+	}
+	_ = clientConn.Close()
+	select {
+	case err = <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("server did not stop")
+	}
+}
+
+type blockingTranscriptionApplication struct {
+	*fakeApplication
+	started, cancelled chan struct{}
+	once               sync.Once
+}
+
+func (a *blockingTranscriptionApplication) ExecuteTranscription(ctx context.Context, _ application.ExecuteTranscriptionRequest) (application.ExecuteTranscriptionResult, error) {
+	a.once.Do(func() { close(a.started) })
+	<-ctx.Done()
+	close(a.cancelled)
+	return application.ExecuteTranscriptionResult{}, ctx.Err()
 }
 
 type singleConnListener struct {
