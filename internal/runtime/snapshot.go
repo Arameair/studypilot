@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"path"
+	"strings"
 	"time"
 )
 
@@ -25,34 +27,97 @@ type SegmentSummary struct {
 	TranscriptStatus TranscriptionStatus `json:"transcription_status"`
 }
 
+// SegmentTranscriptionState is the safe current transcription-job summary for
+// one capture segment. It deliberately excludes transcript text, idempotency
+// keys, raw errors, commands, and process details.
+type SegmentTranscriptionState struct {
+	SegmentID                  string     `json:"segment_id"`
+	SegmentNumber              int        `json:"segment_number"`
+	JobID                      string     `json:"job_id"`
+	Backend                    string     `json:"backend"`
+	Model                      string     `json:"model"`
+	JobStatus                  string     `json:"job_status"`
+	QueueStatus                string     `json:"queue_status"`
+	Attempt                    int        `json:"attempt"`
+	MaxAttempts                int        `json:"max_attempts"`
+	InputRelativePath          string     `json:"input_relative_path"`
+	TranscriptJSONRelativePath string     `json:"transcript_json_relative_path,omitempty"`
+	TranscriptTextRelativePath string     `json:"transcript_text_relative_path,omitempty"`
+	JobMetadataRelativePath    string     `json:"job_metadata_relative_path,omitempty"`
+	PartialSequence            int64      `json:"partial_sequence,omitempty"`
+	StableThroughMillis        int64      `json:"stable_through_millis,omitempty"`
+	LastErrorCode              string     `json:"last_error_code,omitempty"`
+	QueuedAt                   *time.Time `json:"queued_at,omitempty"`
+	StartedAt                  *time.Time `json:"started_at,omitempty"`
+	UpdatedAt                  *time.Time `json:"updated_at,omitempty"`
+	CompletedAt                *time.Time `json:"completed_at,omitempty"`
+}
+
+func (s SegmentTranscriptionState) Clone() SegmentTranscriptionState {
+	out := s
+	out.QueuedAt = cloneTime(s.QueuedAt)
+	out.StartedAt = cloneTime(s.StartedAt)
+	out.UpdatedAt = cloneTime(s.UpdatedAt)
+	out.CompletedAt = cloneTime(s.CompletedAt)
+	return out
+}
+
 type Snapshot struct {
-	SchemaVersion       int                 `json:"schema_version"`
-	WorkspaceRoot       string              `json:"workspace_root,omitempty"`
-	CourseID            string              `json:"course_id,omitempty"`
-	CourseName          string              `json:"course_name,omitempty"`
-	ModuleID            string              `json:"module_id,omitempty"`
-	ModuleNumber        int                 `json:"module_number,omitempty"`
-	ModuleName          string              `json:"module_name,omitempty"`
-	SessionID           string              `json:"session_id,omitempty"`
-	SessionNumber       int                 `json:"session_number,omitempty"`
-	SessionTitle        string              `json:"session_title,omitempty"`
-	SessionStatus       SessionStatus       `json:"session_status"`
-	CaptureStatus       CaptureStatus       `json:"capture_status"`
-	CaptureID           string              `json:"capture_id,omitempty"`
-	CaptureDeviceID     string              `json:"capture_device_id,omitempty"`
-	CaptureBackend      string              `json:"capture_backend,omitempty"`
-	TranscriptionStatus TranscriptionStatus `json:"transcription_status"`
-	FilesystemStatus    FilesystemStatus    `json:"filesystem_status"`
-	PublicationStatus   PublicationStatus   `json:"publication_status"`
-	CurrentSegment      int                 `json:"current_segment"`
-	SessionStartedAt    *time.Time          `json:"session_started_at,omitempty"`
-	SegmentStartedAt    *time.Time          `json:"segment_started_at,omitempty"`
-	LastSavedAt         *time.Time          `json:"last_saved_at,omitempty"`
-	UpdatedAt           time.Time           `json:"updated_at"`
-	SessionElapsed      time.Duration       `json:"session_elapsed"`
-	SegmentElapsed      time.Duration       `json:"segment_elapsed"`
-	LastError           *RuntimeError       `json:"last_error,omitempty"`
-	Segments            []SegmentSummary    `json:"segments,omitempty"`
+	SchemaVersion       int                         `json:"schema_version"`
+	WorkspaceRoot       string                      `json:"workspace_root,omitempty"`
+	CourseID            string                      `json:"course_id,omitempty"`
+	CourseName          string                      `json:"course_name,omitempty"`
+	ModuleID            string                      `json:"module_id,omitempty"`
+	ModuleNumber        int                         `json:"module_number,omitempty"`
+	ModuleName          string                      `json:"module_name,omitempty"`
+	SessionID           string                      `json:"session_id,omitempty"`
+	SessionNumber       int                         `json:"session_number,omitempty"`
+	SessionTitle        string                      `json:"session_title,omitempty"`
+	SessionStatus       SessionStatus               `json:"session_status"`
+	CaptureStatus       CaptureStatus               `json:"capture_status"`
+	CaptureID           string                      `json:"capture_id,omitempty"`
+	CaptureDeviceID     string                      `json:"capture_device_id,omitempty"`
+	CaptureBackend      string                      `json:"capture_backend,omitempty"`
+	TranscriptionStatus TranscriptionStatus         `json:"transcription_status"`
+	FilesystemStatus    FilesystemStatus            `json:"filesystem_status"`
+	PublicationStatus   PublicationStatus           `json:"publication_status"`
+	CurrentSegment      int                         `json:"current_segment"`
+	SessionStartedAt    *time.Time                  `json:"session_started_at,omitempty"`
+	SegmentStartedAt    *time.Time                  `json:"segment_started_at,omitempty"`
+	LastSavedAt         *time.Time                  `json:"last_saved_at,omitempty"`
+	UpdatedAt           time.Time                   `json:"updated_at"`
+	SessionElapsed      time.Duration               `json:"session_elapsed"`
+	SegmentElapsed      time.Duration               `json:"segment_elapsed"`
+	LastError           *RuntimeError               `json:"last_error,omitempty"`
+	Segments            []SegmentSummary            `json:"segments,omitempty"`
+	Transcriptions      []SegmentTranscriptionState `json:"transcriptions,omitempty"`
+}
+
+func (s Snapshot) Clone() Snapshot {
+	out := s
+	out.SessionStartedAt = cloneTime(s.SessionStartedAt)
+	out.SegmentStartedAt = cloneTime(s.SegmentStartedAt)
+	out.LastSavedAt = cloneTime(s.LastSavedAt)
+	if s.LastError != nil {
+		x := *s.LastError
+		out.LastError = &x
+	}
+	out.Segments = append([]SegmentSummary(nil), s.Segments...)
+	for i := range out.Segments {
+		out.Segments[i].StoppedAt = cloneTime(s.Segments[i].StoppedAt)
+	}
+	out.Transcriptions = make([]SegmentTranscriptionState, len(s.Transcriptions))
+	for i := range s.Transcriptions {
+		out.Transcriptions[i] = s.Transcriptions[i].Clone()
+	}
+	return out
+}
+func cloneTime(v *time.Time) *time.Time {
+	if v == nil {
+		return nil
+	}
+	x := *v
+	return &x
 }
 
 func (s Snapshot) Validate() error {
@@ -120,7 +185,178 @@ func (s Snapshot) Validate() error {
 	if err := s.validateSegments(); err != nil {
 		return err
 	}
+	if err := s.validateTranscriptions(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s Snapshot) validateTranscriptions() error {
+	if len(s.Transcriptions) == 0 {
+		return nil
+	}
+	segments := map[string]SegmentSummary{}
+	for _, segment := range s.Segments {
+		segments[segment.ID] = segment
+	}
+	seen := map[string]bool{}
+	previous := 0
+	for _, state := range s.Transcriptions {
+		segment, ok := segments[state.SegmentID]
+		if !ok || seen[state.SegmentID] || state.SegmentNumber <= previous || segment.Number != state.SegmentNumber {
+			return invalid("transcription states require unique known segments in number order")
+		}
+		seen[state.SegmentID] = true
+		previous = state.SegmentNumber
+		if state.JobID == "" || state.Backend == "" || state.Model == "" || state.Attempt < 1 || state.MaxAttempts < 1 || state.Attempt > state.MaxAttempts || !validJobStatus(state.JobStatus) || !validQueueStatus(state.QueueStatus) {
+			return invalid("transcription state fields are invalid")
+		}
+		for _, p := range []string{state.InputRelativePath, state.TranscriptJSONRelativePath, state.TranscriptTextRelativePath, state.JobMetadataRelativePath} {
+			if p != "" && !safeRelativePath(p) {
+				return invalid("transcription state contains unsafe path")
+			}
+		}
+		if state.InputRelativePath == "" || state.QueuedAt == nil || state.UpdatedAt == nil || state.UpdatedAt.Before(*state.QueuedAt) {
+			return invalid("transcription state timestamps are invalid")
+		}
+		if state.StartedAt != nil && state.StartedAt.Before(*state.QueuedAt) {
+			return invalid("transcription start precedes queue time")
+		}
+		if state.StartedAt != nil && state.UpdatedAt.Before(*state.StartedAt) {
+			return invalid("transcription update precedes start")
+		}
+		if state.CompletedAt != nil && (state.StartedAt == nil || state.CompletedAt.Before(*state.StartedAt)) {
+			return invalid("transcription completion precedes start")
+		}
+		if state.CompletedAt != nil && state.UpdatedAt.Before(*state.CompletedAt) {
+			return invalid("transcription update precedes completion")
+		}
+		if state.PartialSequence < 0 || state.StableThroughMillis < 0 {
+			return invalid("partial transcription metadata cannot be negative")
+		}
+		if state.LastErrorCode != "" && !validTranscriptionErrorCode(state.LastErrorCode) {
+			return invalid("transcription state contains unknown error code")
+		}
+	}
+	want := AggregateTranscriptionStatus(s.Segments, s.Transcriptions)
+	if s.TranscriptionStatus != want {
+		return invalid("aggregate transcription status is inconsistent")
+	}
+	for _, segment := range s.Segments {
+		wantSegment := TranscriptionStatusNotStarted
+		for _, state := range s.Transcriptions {
+			if state.SegmentID == segment.ID {
+				wantSegment = segmentTranscriptionStatus(state)
+				break
+			}
+		}
+		if segment.TranscriptStatus != wantSegment {
+			return invalid("segment transcription status is inconsistent")
+		}
+	}
+	return nil
+}
+
+func segmentTranscriptionStatus(state SegmentTranscriptionState) TranscriptionStatus {
+	switch {
+	case state.JobStatus == "completed":
+		return TranscriptionStatusComplete
+	case state.QueueStatus == "claimed" || state.JobStatus == "preparing" || state.JobStatus == "running" || state.JobStatus == "partial" || state.JobStatus == "finalizing":
+		return TranscriptionStatusTranscribing
+	case state.QueueStatus == "queued" || state.QueueStatus == "retry_waiting":
+		return TranscriptionStatusQueued
+	case state.JobStatus == "failed":
+		return TranscriptionStatusFailed
+	default:
+		return TranscriptionStatusNotStarted
+	}
+}
+
+func validJobStatus(v string) bool {
+	switch v {
+	case "queued", "preparing", "running", "partial", "finalizing", "completed", "cancelled", "failed":
+		return true
+	}
+	return false
+}
+func validQueueStatus(v string) bool {
+	switch v {
+	case "queued", "claimed", "retry_waiting", "cancelled", "terminal":
+		return true
+	}
+	return false
+}
+func validTranscriptionErrorCode(v string) bool {
+	switch v {
+	case "unavailable", "model_missing", "invalid_input", "input_not_finalized", "duplicate_job", "invalid_state", "cancelled", "timeout", "partial_output", "malformed_output", "artifact_conflict", "permission_denied", "uncertain", "internal", "queue_conflict", "idempotency_conflict", "retry_exhausted":
+		return true
+	}
+	return false
+}
+func safeRelativePath(v string) bool {
+	if v == "" || v[0] == '/' || strings.Contains(v, `\`) || strings.Contains(v, "\x00") || (len(v) > 1 && v[1] == ':') {
+		return false
+	}
+	clean := path.Clean(v)
+	return clean == v && clean != ".." && !strings.HasPrefix(clean, "../")
+}
+
+// AggregateTranscriptionStatus derives the session-level status from finalized
+// segments and their current authoritative job summaries.
+func AggregateTranscriptionStatus(segments []SegmentSummary, states []SegmentTranscriptionState) TranscriptionStatus {
+	finalized := map[string]bool{}
+	for _, segment := range segments {
+		if segment.Status == SegmentStatusStopped {
+			finalized[segment.ID] = true
+		}
+	}
+	if len(finalized) == 0 {
+		return TranscriptionStatusNotStarted
+	}
+	byID := map[string]SegmentTranscriptionState{}
+	for _, state := range states {
+		byID[state.SegmentID] = state
+	}
+	completed, jobs := 0, 0
+	running, queued, failed := false, false, false
+	for id := range finalized {
+		state, ok := byID[id]
+		if !ok {
+			continue
+		}
+		jobs++
+		if state.LastErrorCode == "uncertain" || (state.JobStatus == "failed" && state.QueueStatus != "retry_waiting" && state.QueueStatus != "queued" && state.QueueStatus != "claimed") {
+			failed = true
+		}
+		if state.QueueStatus == "claimed" || state.JobStatus == "preparing" || state.JobStatus == "running" || state.JobStatus == "partial" || state.JobStatus == "finalizing" {
+			running = true
+		}
+		if state.QueueStatus == "queued" || state.QueueStatus == "retry_waiting" {
+			queued = true
+		}
+		if state.JobStatus == "completed" {
+			completed++
+		}
+	}
+	if failed {
+		return TranscriptionStatusFailed
+	}
+	if running {
+		return TranscriptionStatusTranscribing
+	}
+	if queued {
+		return TranscriptionStatusQueued
+	}
+	if completed == len(finalized) {
+		return TranscriptionStatusComplete
+	}
+	if completed > 0 {
+		return TranscriptionStatusPartial
+	}
+	if jobs == 0 {
+		return TranscriptionStatusNotStarted
+	}
+	return TranscriptionStatusNotStarted
 }
 
 func (s Snapshot) validateSegments() error {

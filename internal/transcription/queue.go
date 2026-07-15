@@ -129,6 +129,14 @@ type RecordTerminalRequest struct {
 	Job            Job
 	ExpectedStatus QueueStatus
 }
+type RecordStartedRequest struct {
+	Job            Job
+	ExpectedStatus QueueStatus
+}
+type RecordPartialRequest struct {
+	Job            Job
+	ExpectedStatus QueueStatus
+}
 type ScheduleRetryRequest struct {
 	JobID          JobID
 	ExpectedStatus QueueStatus
@@ -144,6 +152,8 @@ type Queue interface {
 	List(context.Context, QueueFilter) ([]QueueEntry, error)
 	Claim(context.Context, ClaimRequest) (ClaimResult, error)
 	CancelQueued(context.Context, CancelQueuedRequest) (QueueEntry, error)
+	RecordStarted(context.Context, RecordStartedRequest) (QueueEntry, error)
+	RecordPartial(context.Context, RecordPartialRequest) (QueueEntry, error)
 	RecordTerminal(context.Context, RecordTerminalRequest) (QueueEntry, error)
 	ScheduleRetry(context.Context, ScheduleRetryRequest) (QueueEntry, error)
 	Requeue(context.Context, RequeueRequest) (QueueEntry, error)

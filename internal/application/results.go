@@ -3,6 +3,7 @@ package application
 import (
 	"github.com/Arameair/studypilot/internal/filesystem"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
+	"github.com/Arameair/studypilot/internal/transcription"
 )
 
 // Plan operation kinds, mirrored as stable strings so adapters can render a
@@ -123,6 +124,24 @@ type CaptureInspectionResult struct {
 	Issues                        []CaptureIssue
 	Revision                      uint64
 	Recoverable, BackendAvailable bool
+}
+type TranscriptionResult struct {
+	Operation, SessionID, SegmentID, JobID, JobStatus, QueueStatus string
+	Attempt, MaxAttempts                                           int
+	Revision                                                       uint64
+	DurabilityWarning                                              bool
+}
+type TranscriptionInspectionIssue struct {
+	Code, Severity, Message, JobID, SegmentID string
+	Recoverable                               bool
+}
+type TranscriptionInspectionResult struct {
+	SessionID       string
+	Revision        uint64
+	AggregateStatus studyruntime.TranscriptionStatus
+	RuntimeStates   []studyruntime.SegmentTranscriptionState
+	QueueEntries    []transcription.QueueEntry
+	Issues          []TranscriptionInspectionIssue
 }
 
 func planResult(plan filesystem.Plan) PlanResult {

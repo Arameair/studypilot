@@ -8,6 +8,7 @@ import (
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
+	"github.com/Arameair/studypilot/internal/transcription"
 )
 
 // ErrorKind is a stable, UI-neutral classification of an application failure.
@@ -74,6 +75,9 @@ func Classify(err error) ErrorKind {
 	if kind, ok := classifyCapture(err); ok {
 		return kind
 	}
+	if kind, ok := classifyTranscription(err); ok {
+		return kind
+	}
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return ErrorCancelled
@@ -100,6 +104,35 @@ func Classify(err error) ErrorKind {
 		return ErrorUnsafe
 	default:
 		return ErrorInternal
+	}
+}
+
+// classifyTranscription keeps backend and queue errors UI-neutral. Backend
+// unavailability is not_found because no usable implementation exists at the
+// requested boundary; timeout and uncertainty require recovery/inspection and
+// therefore remain internal.
+func classifyTranscription(err error) (ErrorKind, bool) {
+	if errors.Is(err, ErrTranscriptionPersistenceUncertain) {
+		return ErrorInternal, true
+	}
+	switch transcription.CodeOf(err) {
+	case "":
+		return "", false
+	case transcription.ErrorInvalidInput:
+		return ErrorInvalidInput, true
+	case transcription.ErrorUnavailable, transcription.ErrorModelMissing:
+		return ErrorNotFound, true
+	case transcription.ErrorInputNotFinalized, transcription.ErrorDuplicateJob,
+		transcription.ErrorInvalidState, transcription.ErrorPartialOutput,
+		transcription.ErrorArtifactConflict, transcription.ErrorQueueConflict,
+		transcription.ErrorIdempotencyConflict, transcription.ErrorRetryExhausted:
+		return ErrorConflict, true
+	case transcription.ErrorPermissionDenied:
+		return ErrorUnsafe, true
+	case transcription.ErrorCancelled:
+		return ErrorCancelled, true
+	default:
+		return ErrorInternal, true
 	}
 }
 

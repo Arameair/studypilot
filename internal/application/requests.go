@@ -1,5 +1,7 @@
 package application
 
+import "github.com/Arameair/studypilot/internal/transcription"
+
 // WorkspaceRequest identifies the StudyPilot workspace to plan or initialize.
 // An empty Root selects the default workspace location.
 type WorkspaceRequest struct {
@@ -62,3 +64,48 @@ type ResumeCaptureRequest struct {
 	DeviceID string
 }
 type InspectCaptureRequest struct{ Root, CourseRef, ModuleRef, SessionRef, Backend string }
+
+type TranscriptionMutationRequest struct {
+	Root, CourseRef, ModuleRef, SessionRef string
+	ExpectedRevision                       uint64
+	JobID                                  transcription.JobID
+}
+type EnqueueTranscriptionRequest struct {
+	Root, CourseRef, ModuleRef, SessionRef, SegmentID, Backend, Model, Language, IdempotencyKey string
+	MaxAttempts                                                                                 int
+	ExpectedRevision                                                                            uint64
+}
+type ClaimTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	ExpectedQueueStatus transcription.QueueStatus
+}
+type StartTranscriptionRequest struct{ TranscriptionMutationRequest }
+type PartialTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	Transcript                    transcription.Transcript
+	Sequence, StableThroughMillis int64
+}
+type CompleteTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	Transcript transcription.Transcript
+	Provenance transcription.Provenance
+	Artifacts  transcription.TranscriptArtifacts
+}
+type FailTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	Error *transcription.Error
+}
+type CancelTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	ExpectedQueueStatus transcription.QueueStatus
+}
+type ScheduleTranscriptionRetryRequest struct {
+	TranscriptionMutationRequest
+	ExpectedQueueStatus transcription.QueueStatus
+	Policy              transcription.RetryPolicy
+}
+type RequeueTranscriptionRequest struct {
+	TranscriptionMutationRequest
+	ExpectedQueueStatus transcription.QueueStatus
+}
+type InspectTranscriptionRequest struct{ Root, CourseRef, ModuleRef, SessionRef string }

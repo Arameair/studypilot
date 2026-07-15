@@ -74,10 +74,11 @@ var captureTransitions = map[CaptureStatus][]CaptureStatus{
 
 var transcriptionTransitions = map[TranscriptionStatus][]TranscriptionStatus{
 	TranscriptionStatusNotStarted:   {TranscriptionStatusQueued},
-	TranscriptionStatusQueued:       {TranscriptionStatusTranscribing, TranscriptionStatusFailed},
+	TranscriptionStatusQueued:       {TranscriptionStatusNotStarted, TranscriptionStatusTranscribing, TranscriptionStatusFailed},
 	TranscriptionStatusTranscribing: {TranscriptionStatusComplete, TranscriptionStatusPartial, TranscriptionStatusFailed},
 	TranscriptionStatusPartial:      {TranscriptionStatusQueued, TranscriptionStatusTranscribing, TranscriptionStatusComplete, TranscriptionStatusFailed},
 	TranscriptionStatusFailed:       {TranscriptionStatusQueued},
+	TranscriptionStatusComplete:     {TranscriptionStatusPartial, TranscriptionStatusQueued, TranscriptionStatusTranscribing, TranscriptionStatusFailed},
 }
 
 var filesystemTransitions = map[FilesystemStatus][]FilesystemStatus{

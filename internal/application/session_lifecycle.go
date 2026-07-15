@@ -414,29 +414,5 @@ func sessionSummary(record session.Record, moduleNumber int) SessionSummary {
 	return SessionSummary{ID: record.Metadata.ID, CourseID: record.Metadata.CourseID, ModuleID: record.Metadata.ModuleID, ModuleNumber: moduleNumber, Number: record.Metadata.Number, Title: record.Metadata.DisplayName, SessionStatus: record.Runtime.Snapshot.SessionStatus, CaptureStatus: record.Runtime.Snapshot.CaptureStatus, Revision: record.Runtime.Revision}
 }
 func cloneSnapshot(value studyruntime.Snapshot) studyruntime.Snapshot {
-	result := value
-	result.Segments = append([]studyruntime.SegmentSummary(nil), value.Segments...)
-	if value.SessionStartedAt != nil {
-		v := *value.SessionStartedAt
-		result.SessionStartedAt = &v
-	}
-	if value.SegmentStartedAt != nil {
-		v := *value.SegmentStartedAt
-		result.SegmentStartedAt = &v
-	}
-	if value.LastSavedAt != nil {
-		v := *value.LastSavedAt
-		result.LastSavedAt = &v
-	}
-	if value.LastError != nil {
-		v := *value.LastError
-		result.LastError = &v
-	}
-	for i := range result.Segments {
-		if value.Segments[i].StoppedAt != nil {
-			v := *value.Segments[i].StoppedAt
-			result.Segments[i].StoppedAt = &v
-		}
-	}
-	return result
+	return value.Clone()
 }

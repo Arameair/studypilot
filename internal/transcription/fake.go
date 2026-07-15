@@ -89,9 +89,16 @@ func (s *FakeService) CreateJob(ctx context.Context, req CreateJobRequest) (Crea
 			return CreateJobResult{}, newError(ErrorDuplicateJob, OperationCreate, false, "active transcription job already exists", nil, j.ID)
 		}
 	}
-	id, err := s.generate()
-	if err != nil {
-		return CreateJobResult{}, newError(ErrorInternal, OperationCreate, false, "generate transcription job ID", err, "")
+	id := req.JobID
+	if id == "" {
+		var err error
+		id, err = s.generate()
+		if err != nil {
+			return CreateJobResult{}, newError(ErrorInternal, OperationCreate, false, "generate transcription job ID", err, "")
+		}
+	}
+	if err := id.Validate(); err != nil {
+		return CreateJobResult{}, err
 	}
 	if _, exists := s.jobs[id]; exists {
 		return CreateJobResult{}, newError(ErrorDuplicateJob, OperationCreate, false, "transcription job ID already exists", nil, id)
@@ -123,6 +130,19 @@ func (s *FakeService) Start(ctx context.Context, req StartRequest) (StartResult,
 	j, err := s.job(req.JobID, OperationStart)
 	if err != nil {
 		return StartResult{}, err
+	}
+	if j.Status == JobFailed && req.Retry {
+		now := s.clock()
+		j.Status = JobRunning
+		j.StartedAt = &now
+		j.UpdatedAt = now
+		j.CompletedAt = nil
+		j.Transcript = nil
+		j.Provenance = nil
+		j.Artifacts = TranscriptArtifacts{}
+		j.LastError = nil
+		s.jobs[j.ID] = j.Clone()
+		return StartResult{Job: j.Clone()}, nil
 	}
 	if !CanTransition(j.Status, JobPreparing) {
 		return StartResult{}, newError(ErrorInvalidState, OperationStart, false, "job cannot be started from its current state", nil, j.ID)

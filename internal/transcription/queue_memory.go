@@ -208,6 +208,38 @@ func (q *MemoryQueue) RecordTerminal(ctx context.Context, r RecordTerminalReques
 	q.entries[e.Job.ID] = e.Clone()
 	return e.Clone(), nil
 }
+func (q *MemoryQueue) RecordStarted(ctx context.Context, r RecordStartedRequest) (QueueEntry, error) {
+	return q.recordProgress(ctx, r.Job, r.ExpectedStatus, JobRunning)
+}
+func (q *MemoryQueue) RecordPartial(ctx context.Context, r RecordPartialRequest) (QueueEntry, error) {
+	return q.recordProgress(ctx, r.Job, r.ExpectedStatus, JobPartial)
+}
+func (q *MemoryQueue) recordProgress(ctx context.Context, job Job, expected QueueStatus, want JobStatus) (QueueEntry, error) {
+	if err := contextError(ctx, "queue_progress"); err != nil {
+		return QueueEntry{}, err
+	}
+	if job.Status != want {
+		return QueueEntry{}, newError(ErrorInvalidInput, "queue_progress", false, "queue progress has unexpected job status", nil, job.ID)
+	}
+	if err := job.Validate(); err != nil {
+		return QueueEntry{}, err
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	entry, ok := q.entries[job.ID]
+	if !ok {
+		return QueueEntry{}, newError(ErrorInvalidInput, "queue_progress", false, "transcription queue job was not found", nil, job.ID)
+	}
+	if entry.QueueStatus != expected || entry.QueueStatus != QueueClaimed {
+		return QueueEntry{}, newError(ErrorQueueConflict, "queue_progress", false, "queue status changed before job progress", nil, job.ID)
+	}
+	if !sameJobSource(entry.Job, job) {
+		return QueueEntry{}, newError(ErrorQueueConflict, "queue_progress", false, "job progress changes immutable identity", nil, job.ID)
+	}
+	entry.Job = job.Clone()
+	q.entries[job.ID] = entry.Clone()
+	return entry.Clone(), nil
+}
 func sameJobSource(a, b Job) bool {
 	return a.ID == b.ID && a.SessionID == b.SessionID && a.CaptureID == b.CaptureID && a.SegmentID == b.SegmentID && a.SegmentNumber == b.SegmentNumber && a.InputRelativePath == b.InputRelativePath && a.Backend == b.Backend && a.Model == b.Model && a.Language == b.Language
 }

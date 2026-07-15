@@ -20,6 +20,7 @@ import (
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
+	"github.com/Arameair/studypilot/internal/transcription"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
@@ -27,22 +28,30 @@ import (
 // required; production wiring supplies time.Now and course.DefaultIDGenerator,
 // while tests supply fixed clocks and deterministic or failing ID generators.
 type Dependencies struct {
-	Now                 func() time.Time
-	GenerateID          course.IDGenerator
-	SessionRepositories SessionRepositoryFactory
-	CaptureServices     CaptureServiceFactory
+	Now                   func() time.Time
+	GenerateID            course.IDGenerator
+	SessionRepositories   SessionRepositoryFactory
+	CaptureServices       CaptureServiceFactory
+	TranscriptionQueues   TranscriptionQueueFactory
+	TranscriptionServices TranscriptionServiceFactory
 }
 
 // Service exposes StudyPilot's shared application use cases.
 type Service struct {
-	now                 func() time.Time
-	generateID          course.IDGenerator
-	sessionRepositories SessionRepositoryFactory
-	sessionMu           sync.Mutex
-	sessionByRoot       map[string]SessionRepository
-	captureServices     CaptureServiceFactory
-	captureByRoot       map[string]capture.Service
-	captureRoots        map[string]string
+	now                        func() time.Time
+	generateID                 course.IDGenerator
+	sessionRepositories        SessionRepositoryFactory
+	sessionMu                  sync.Mutex
+	sessionByRoot              map[string]SessionRepository
+	captureServices            CaptureServiceFactory
+	captureByRoot              map[string]capture.Service
+	captureRoots               map[string]string
+	transcriptionQueues        TranscriptionQueueFactory
+	transcriptionServices      TranscriptionServiceFactory
+	transcriptionCacheMu       sync.Mutex
+	transcriptionMutationMu    sync.Mutex
+	transcriptionQueueByRoot   map[string]transcription.Queue
+	transcriptionServiceByRoot map[string]transcription.Service
 }
 
 // NewService constructs a Service, rejecting missing required dependencies.
@@ -61,13 +70,22 @@ func NewService(deps Dependencies) (*Service, error) {
 	if captureFactory == nil {
 		captureFactory = defaultCaptureServiceFactory
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string)}, nil
+	queueFactory := deps.TranscriptionQueues
+	if queueFactory == nil {
+		queueFactory = defaultTranscriptionQueueFactory
+	}
+	transcriptionFactory := deps.TranscriptionServices
+	if transcriptionFactory == nil {
+		transcriptionFactory = defaultTranscriptionServiceFactory
+	}
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall
 // clock and StudyPilot's secure course/module ID generator.
 func NewDefaultService() *Service {
-	return &Service{now: time.Now, generateID: course.DefaultIDGenerator, sessionRepositories: defaultSessionRepositoryFactory, sessionByRoot: make(map[string]SessionRepository), captureServices: defaultCaptureServiceFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string)}
+	service, _ := NewService(Dependencies{Now: time.Now, GenerateID: course.DefaultIDGenerator})
+	return service
 }
 
 func defaultCaptureServiceFactory(workspace.Paths, string, func(string) (string, error)) (capture.Service, error) {

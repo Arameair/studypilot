@@ -59,9 +59,13 @@ func TestInspectionOmitsTranscriptContent(t *testing.T) {
 	entry := reconciliationEntry(t, 1)
 	transcript := baseTranscript(false)
 	entry.Job.Transcript = &transcript
+	entry.Job.LastError = newError(ErrorInternal, "synthetic", true, "safe failure", fmt.Errorf("raw backend cause"), entry.Job.ID)
 	inspection := InspectEntries([]QueueEntry{entry})
 	if inspection.Entries[0].Job.Transcript != nil {
 		t.Fatal("inspection exposed transcript content")
+	}
+	if inspection.Entries[0].Job.LastError.Cause != nil {
+		t.Fatal("inspection exposed raw error cause")
 	}
 }
 

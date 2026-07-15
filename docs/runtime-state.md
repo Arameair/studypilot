@@ -10,6 +10,11 @@ segment number and timing, and immutable finalized summaries with relative
 audio paths. These fields allow restart inspection without making runtime state
 an authority over the backend's WAV, manifest, and ownership evidence.
 
+Transcription persistence adds one safe current-job summary per finalized
+segment. Transcript content and raw errors are excluded; the session-wide
+status is derived from independent summaries. See
+[transcription-runtime.md](transcription-runtime.md).
+
 ## Independent dimensions
 
 | Dimension | States |

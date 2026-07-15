@@ -1,5 +1,11 @@
 # Architecture
 
+Transcription follows `future CLI/GUI → internal/application →
+internal/transcription → queue/future backend`. `internal/runtime` owns its safe
+persisted summary and `internal/session` owns atomic revisioned persistence.
+The current queue and fake service are in-process only; adapters do not invoke
+them directly.
+
 StudyPilot is designed around three repositories that remain operationally and
 historically separate.
 

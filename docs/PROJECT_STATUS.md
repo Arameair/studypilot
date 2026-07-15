@@ -2,9 +2,10 @@
 
 ## Current Milestone
 
-Transcription Queue, Retry, and Reconciliation Contracts extend the core domain
-with deterministic logical scheduling and inspection. The queue remains
-in-memory and adds no worker, persistence, backend, or application flow.
+Transcription Runtime and Application Integration persists safe per-segment
+current-job summaries, derives aggregate status, provides pure mappings, and
+adds revision-controlled application orchestration and read-only mismatch
+inspection. The queue remains in-memory and no real backend exists.
 
 ## Completed Capabilities
 
@@ -40,6 +41,10 @@ in-memory and adds no worker, persistence, backend, or application flow.
 - Logical queue status and ownership, duplicate/idempotency policy, explicit
   retry and requeue decisions, safe context classification, and deterministic
   read-only reconciliation
+- Per-segment transcription runtime summaries, deterministic aggregate status,
+  pure lifecycle mappings, revision-controlled enqueue/claim/start/partial/
+  complete/fail/cancel/retry/requeue use cases, explicit uncertain persistence,
+  and restart-safe queue/runtime diagnostics
 
 ## Package Map
 
@@ -53,7 +58,8 @@ creation and mutation; `runtime` owns status contracts; `schema` owns documents;
 
 ## Known Limitations
 
-No real-vault recording, transcription, desktop UI, public
+No real-vault recording, real transcription backend, durable transcript
+artifacts, persistent transcription queue/worker, transcription CLI, desktop UI, public
 migration application, rollback command, cross-process mutation lock, or
 cross-process recording ownership enforcement exists. Recording device discovery
 is conservative: a Linux recorder executable is not treated as a confirmed
@@ -68,8 +74,9 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Transcription runtime and application integration. Do not restore the stash or
-add a real backend, worker, CLI, or persistent queue automatically.
+Local transcription backend and durable artifact persistence. Do not restore
+the stash or add Whisper, a worker, CLI, GUI, or real-vault execution
+automatically.
 
 ## Verification
 

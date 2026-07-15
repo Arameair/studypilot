@@ -67,24 +67,29 @@ Deterministic in-memory scheduling, duplicate and idempotency policies, logical
 claims, explicit bounded retry decisions, context classification, safe
 inspection, and pure reconciliation. No persistence or workers.
 
-## Next Milestone — Transcription Runtime and Application Integration (future)
-Integrate the contracts with runtime/application state without adding a real
-transcription backend or persistent worker.
+## Phase 17 — Transcription Runtime and Application Integration (complete)
+Safe per-segment runtime state, derived aggregate status, pure mappings,
+revision-controlled application use cases, uncertainty reporting, and
+queue/runtime inspection. The queue remains in-memory and there is no backend.
 
-## Phase 17 — Asset Import and Routing (future)
+## Next Milestone — Local transcription backend and durable artifact persistence (future)
+Add a local backend and durable private artifacts without a worker or automatic
+publication.
+
+## Phase 18 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 18 — Transcription Backend (future)
+## Phase 19 — Transcription Backend (future)
 Whisper and derived transcripts.
 
-## Phase 19 — Diagnostics (future)
+## Phase 20 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 20 — Desktop and Tray UI (future)
+## Phase 21 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 21 — Private Git Workflow (future)
+## Phase 22 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 22 — Publication Workflow (future)
+## Phase 23 — Publication Workflow (future)
 Reviewed derivatives with human approval.

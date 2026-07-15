@@ -1,5 +1,9 @@
 # Session Lifecycle Application Services
 
+Transcription operations never transition the session or capture lifecycle.
+Completing a transcription job is distinct from explicit session completion,
+and runtime writes reuse the session repository's revision/hash protections.
+
 ## Application use cases
 
 The UI-neutral service provides Create, Get, Start, Interrupt, Begin Recovery,

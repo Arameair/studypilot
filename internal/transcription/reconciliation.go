@@ -119,6 +119,11 @@ func InspectEntries(input []QueueEntry) QueueInspection {
 		entries[i] = e.Clone()
 		entries[i].IdempotencyKey = ""
 		entries[i].Job.Transcript = nil
+		if entries[i].Job.LastError != nil {
+			safe := *entries[i].Job.LastError
+			safe.Cause = nil
+			entries[i].Job.LastError = &safe
+		}
 	}
 	return QueueInspection{entries, issues}
 }

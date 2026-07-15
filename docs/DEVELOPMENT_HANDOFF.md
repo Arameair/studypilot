@@ -45,12 +45,11 @@ real vaults.
 
 ## Current Milestone
 
-`internal/transcription` now also defines a logical queue with separate
-scheduling status, deterministic in-memory storage, active-job uniqueness,
-bounded safe idempotency, atomic logical claims, explicit retry/requeue,
-context cancellation/timeout classification, sanitized inspection, and pure
-reconciliation. Application exposes only queue/service aliases. There is no
-persistence, worker, runtime mapping, orchestration, CLI, backend, or real
+Runtime now persists safe per-segment current transcription jobs and derives the
+aggregate. Pure mappings and application use cases coordinate the in-memory
+queue, fake/service contract, and revisioned session repository. Inspection
+reports queue/runtime contradictions and restart loss without repair. There is
+no persistent queue, worker, CLI, backend, artifact persistence, or real
 transcription.
 
 ## Session Stash Warning
@@ -60,9 +59,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, integrate transcription runtime and application contracts without
-adding a real backend, worker, CLI, persistent queue, or Whisper. Review stash
-concepts without applying the stash; do not restore it.
+After review, implement the local transcription backend and durable artifact
+persistence without adding a worker, CLI, GUI, automatic publication, or
+real-vault execution. Review stash concepts without applying the stash.
 
 ## Real-Vault Safety Rule
 

@@ -133,10 +133,11 @@ network, external executable, or model store.
 
 ## Current exclusions and next milestone
 
-There is no queue persistence, retry scheduling, reconciliation, runtime
-mapping, application orchestration, CLI, Whisper, faster-whisper, Python,
-real transcription, artifact persistence, worker, GUI/tray, or note generation.
+There is no persistent queue, CLI, Whisper, faster-whisper, Python, real
+transcription, artifact persistence, worker, GUI/tray, or note generation.
 
 Logical queue, retry, and read-only reconciliation contracts are now defined in
-[transcription-queue.md](transcription-queue.md). The next milestone is
-**Transcription runtime and application integration**.
+[transcription-queue.md](transcription-queue.md), and runtime/application
+integration is described in
+[transcription-runtime.md](transcription-runtime.md). The next milestone is
+**Local transcription backend and durable artifact persistence**.

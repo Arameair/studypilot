@@ -17,12 +17,16 @@ const (
 )
 
 type CreateJobRequest struct {
+	JobID                                       JobID
 	SessionID, CaptureID, SegmentID             string
 	SegmentNumber                               int
 	InputRelativePath, Backend, Model, Language string
 }
 type CreateJobResult struct{ Job Job }
-type StartRequest struct{ JobID JobID }
+type StartRequest struct {
+	JobID JobID
+	Retry bool
+}
 type StartResult struct{ Job Job }
 type PartialRequest struct{ Update PartialUpdate }
 type PartialResult struct {
