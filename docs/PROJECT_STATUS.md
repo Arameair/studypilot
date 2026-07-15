@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Transcription Execution Orchestration and CLI composes the in-memory queue,
-lifecycle service, selected backend, durable artifact store, and revisioned
-runtime repository for one explicit synchronous job. The safe CLI MVP provides
-combined `execute`, read-only `inspect`, and `capabilities`; real local CLI
-execution passed on temporary purpose-created speech.
+End-to-end Transcription Workflow Validation proves the complete temporary
+operator path across workspace setup, session lifecycle, pause/resume capture,
+two-segment synthetic transcription, real local faster-whisper execution,
+durable artifacts, explicit session completion, restart, and inspection. No
+production defect was found.
 
 ## Completed Capabilities
 
@@ -61,6 +61,9 @@ execution passed on temporary purpose-created speech.
 - Application-owned enqueue/claim/start/backend/store/complete execution with
   exact four-revision success, classified failure persistence, uncertain-state
   handling, restart artifact inspection, and human/JSON CLI output
+- Reproducible CLI workflow validation with structural capture/transcript/
+  provenance/job checks, source SHA-256/size/mtime preservation, stale-revision
+  protection, intermediate-state restart coverage, and safe output auditing
 
 ## Package Map
 
@@ -90,9 +93,9 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-End-to-end transcription workflow validation. Do not restore the stash or add
-a background worker, automatic model download, GUI, publication, or real-vault
-execution automatically.
+Study artifact organization: transcripts, notes, and assets. Preserve the
+private/public boundary and do not restore the stash or add a background
+worker, automatic model download, publication automation, or real-vault tests.
 
 ## Verification
 
@@ -101,5 +104,6 @@ Run `go test ./...`, `go test -race ./...`, `go vet ./...`, `go list ./...`,
 
 ## Privacy
 
-Use synthetic temporary workspaces only. Never inspect, migrate, or publish the
-real private vault. Private and public Git histories remain separate.
+Use isolated temporary workspaces with synthetic data or purpose-created
+validation speech only. Never inspect, migrate, or publish the real private
+vault. Private and public Git histories remain separate.

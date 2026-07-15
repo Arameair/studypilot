@@ -142,5 +142,8 @@ Logical queue, retry, and read-only reconciliation contracts are now defined in
 integration is described in
 [transcription-runtime.md](transcription-runtime.md). Local execution and
 durable artifacts are defined in
-[transcription-backend.md](transcription-backend.md). The next milestone is
-**End-to-end transcription workflow validation**.
+[transcription-backend.md](transcription-backend.md), and the validated operator
+path in
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+The next milestone is **Study artifact organization: transcripts, notes, and
+assets**.

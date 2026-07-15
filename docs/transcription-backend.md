@@ -153,4 +153,7 @@ local matrix above and composed by the application executor described in
 worker/daemon, persistent queue, automatic model download, GUI/tray, note
 generation, or publication.
 
-The next milestone is **End-to-end transcription workflow validation**.
+The full CLI workflow validation is recorded in
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+The next milestone is **Study artifact organization: transcripts, notes, and
+assets**.

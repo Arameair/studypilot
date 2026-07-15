@@ -73,4 +73,7 @@ execution in [transcription-execution.md](transcription-execution.md). There is
 no persistent queue, background worker, GUI/tray, note generation, model
 download, publication, or real-vault access.
 
-The next milestone is **End-to-end transcription workflow validation**.
+Restart and aggregate behavior are validated in
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+The next milestone is **Study artifact organization: transcripts, notes, and
+assets**.

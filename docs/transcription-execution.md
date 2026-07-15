@@ -109,4 +109,7 @@ recording, public portfolio, cloud API, or publication workflow is accessed.
 There is no persistent queue, background worker, daemon, GUI/tray, automatic
 model download, notes workflow, summarization, or publication integration.
 
-The next milestone is **End-to-end transcription workflow validation**.
+The complete synthetic and real operator path is validated in
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+The next milestone is **Study artifact organization: transcripts, notes, and
+assets**.

@@ -46,12 +46,11 @@ real vaults.
 
 ## Current Milestone
 
-The application now owns a synchronous one-job transcription executor that
-persists queued, claimed, running, and completed revisions around backend and
-artifact-store composition. The CLI exposes combined `execute`, restart-aware
-`inspect`, and safe `capabilities`. A real local CLI run completed against
-temporary speech with four final artifacts and unchanged source audio. Queue
-state remains process-local and restart inspection reports that limitation.
+The complete temporary-workspace workflow is validated through two-segment
+synthetic capture/transcription and a real local faster-whisper CLI run.
+Structural artifact parsing, source immutability, exact revisions, explicit
+session completion, stale callers, intermediate restart states, and safe
+restart diagnostics all pass. Queue state remains process-local.
 
 ## Session Stash Warning
 
@@ -60,10 +59,10 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, perform end-to-end transcription workflow validation, including
-operator setup and recovery guidance, without adding a persistent/background
-worker, automatic model download, GUI, publication, or real-vault execution.
-Do not apply the stash.
+After review, define private study artifact organization for transcripts, notes,
+and assets. The intended sequence is artifact organization, initial local GUI,
+then a real course usability test. Do not add publication automation, persistent
+workers, or real-vault tests, and do not apply the stash.
 
 ## Real-Vault Safety Rule
 

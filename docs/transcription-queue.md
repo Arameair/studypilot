@@ -112,5 +112,8 @@ Runtime and application integration is described in
 [transcription-runtime.md](transcription-runtime.md), and local execution/artifact
 storage in [transcription-backend.md](transcription-backend.md). The combined
 process-bound execution decision is in
-[transcription-execution.md](transcription-execution.md). The next milestone is
-**End-to-end transcription workflow validation**.
+[transcription-execution.md](transcription-execution.md), with full workflow
+evidence in
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+The next milestone is **Study artifact organization: transcripts, notes, and
+assets**.

@@ -70,13 +70,23 @@ func TestAggregateTranscriptionStatus(t *testing.T) {
 		want   TranscriptionStatus
 	}{
 		{"none", nil, TranscriptionStatusNotStarted},
+		{"finalized without jobs", []SegmentTranscriptionState{}, TranscriptionStatusNotStarted},
 		{"queued", []SegmentTranscriptionState{state("one", "queued", "queued")}, TranscriptionStatusQueued},
+		{"queued plus completed", []SegmentTranscriptionState{state("one", "queued", "queued"), state("two", "completed", "terminal")}, TranscriptionStatusQueued},
 		{"running", []SegmentTranscriptionState{state("one", "running", "claimed")}, TranscriptionStatusTranscribing},
+		{"running plus completed", []SegmentTranscriptionState{state("one", "running", "claimed"), state("two", "completed", "terminal")}, TranscriptionStatusTranscribing},
 		{"partial", []SegmentTranscriptionState{state("one", "completed", "terminal")}, TranscriptionStatusPartial},
 		{"complete", []SegmentTranscriptionState{state("one", "completed", "terminal"), state("two", "completed", "terminal")}, TranscriptionStatusComplete},
 		{"failed precedence", []SegmentTranscriptionState{state("one", "failed", "terminal"), state("two", "running", "claimed")}, TranscriptionStatusFailed},
+		{"failed plus completed", []SegmentTranscriptionState{state("one", "failed", "terminal"), state("two", "completed", "terminal")}, TranscriptionStatusFailed},
 		{"running precedence", []SegmentTranscriptionState{state("one", "running", "claimed"), state("two", "queued", "queued")}, TranscriptionStatusTranscribing},
 		{"retry handled", []SegmentTranscriptionState{state("one", "failed", "retry_waiting")}, TranscriptionStatusQueued},
+		{"retry plus completed", []SegmentTranscriptionState{state("one", "failed", "retry_waiting"), state("two", "completed", "terminal")}, TranscriptionStatusQueued},
+		{"uncertain plus completed", []SegmentTranscriptionState{func() SegmentTranscriptionState {
+			s := state("one", "failed", "terminal")
+			s.LastErrorCode = "uncertain"
+			return s
+		}(), state("two", "completed", "terminal")}, TranscriptionStatusFailed},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

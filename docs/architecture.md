@@ -19,6 +19,12 @@ because queue ownership does not survive a process restart. Restart inspection
 reports the durable runtime-only job and validates artifacts without fabricating
 queue state. See [transcription-execution.md](transcription-execution.md).
 
+The complete temporary-workspace operator path is validated with two synthetic
+segments and one real local faster-whisper segment. Structural verification
+binds capture manifests, transcript documents, text, provenance, job metadata,
+runtime revisions, and restart diagnostics without using a real vault. See
+[transcription-workflow-validation.md](transcription-workflow-validation.md).
+
 StudyPilot is designed around three repositories that remain operationally and
 historically separate.
 

@@ -93,9 +93,18 @@ backend execution, durable artifacts, and completion with exact revision
 progression. `inspect` unifies runtime, queue, artifact, and backend diagnostics;
 `capabilities` is read-only. The in-memory queue boundary remains explicit.
 
-## Next Milestone — End-to-end transcription workflow validation (future)
-Validate the complete operator workflow and recovery guidance without adding a
-background worker, persistent queue, or automatic model download.
+## End-to-End Transcription Workflow Validation (complete)
+The complete synthetic two-segment and real local faster-whisper CLI workflows
+passed in isolated temporary workspaces. Structural artifacts, source
+immutability, revisions, stale callers, restart behavior, and recovery
+diagnostics are covered by the reusable validation harness and normal tests.
+
+## Next Milestone — Study artifact organization: transcripts, notes, and assets (future)
+Define how private transcripts, notes, and related assets are organized without
+adding publication automation or weakening the vault boundary.
+
+The intended sequence is artifact organization, then the initial local GUI,
+then a real course usability test.
 
 ## Phase 19 — Asset Import and Routing (future)
 Safe private attachment routing.
