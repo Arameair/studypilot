@@ -175,6 +175,49 @@ type StudyArtifactRefreshResult struct {
 	Issues    []studyartifact.Issue
 }
 
+type CourseSummary struct {
+	ID, Name, Slug string
+	Modules        int
+}
+
+type ModuleSummary struct {
+	ID, CourseID, Name, Slug string
+	Number                   int
+	Sessions                 int
+}
+
+type SessionControls struct {
+	StartSession, StartCapture, PauseCapture, ResumeCapture, StopCapture, CompleteSession bool
+}
+
+type SessionWorkspaceResult struct {
+	Course           CourseSummary
+	Module           ModuleSummary
+	Session          SessionResult
+	Controls         SessionControls
+	Capture          CaptureInspectionResult
+	Transcription    TranscriptionInspectionResult
+	Artifacts        []studyartifact.Record
+	ArtifactRevision uint64
+	ArtifactIssues   []studyartifact.Issue
+}
+
+type DashboardTranscription struct {
+	CourseID, ModuleID, SessionID, SegmentID, JobID string
+	SegmentNumber, Attempt, MaxAttempts             int
+	Status, Language                                string
+}
+
+type DashboardResult struct {
+	Courses, Modules   int
+	CourseModules      []ModuleSummary
+	UnfinishedSessions []SessionSummary
+	PendingTranscripts []DashboardTranscription
+	FailedTranscripts  []DashboardTranscription
+	RecentTranscripts  []DashboardTranscription
+	ArtifactIssues     int
+}
+
 func planResult(plan filesystem.Plan) PlanResult {
 	operations := make([]PlannedOperation, len(plan.Operations))
 	for i, operation := range plan.Operations {

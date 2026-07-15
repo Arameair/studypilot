@@ -148,3 +148,10 @@ type RefreshStudyArtifactIndexRequest struct {
 	StudyArtifactModuleRequest
 	ExpectedArtifactRevision uint64
 }
+
+// GUI read requests carry only workspace and immutable/reference identifiers.
+// Root is private application input and is never included in returned models.
+type ListCoursesRequest struct{ Root string }
+type ListModulesRequest struct{ Root, CourseRef string }
+type DashboardRequest struct{ Root string }
+type SessionWorkspaceRequest struct{ Root, CourseRef, ModuleRef, SessionRef string }
