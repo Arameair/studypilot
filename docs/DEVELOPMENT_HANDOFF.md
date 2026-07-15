@@ -46,15 +46,12 @@ real vaults.
 
 ## Current Milestone
 
-The local transcription backend now has a managed version-1 Python worker under
-`tools/transcription-worker`, a pinned dependency, explicit local-only model
-configuration, strict bounded JSON and finalized-WAV validation, safe signal
-handling, mocked Python unit tests, and an opt-in temporary-workspace Go process
-test. The worker writes no StudyPilot artifacts. Real direct-worker and Go
-process validation passed with Python 3.13.5, faster-whisper 1.2.1, ctranslate2
-4.8.1, av 18.0.0, CPU/int8, and an explicitly configured cached `base.en`
-model. Source audio remained unchanged and the private model path is not part of
-persisted or documented output.
+The application now owns a synchronous one-job transcription executor that
+persists queued, claimed, running, and completed revisions around backend and
+artifact-store composition. The CLI exposes combined `execute`, restart-aware
+`inspect`, and safe `capabilities`. A real local CLI run completed against
+temporary speech with four final artifacts and unchanged source audio. Queue
+state remains process-local and restart inspection reports that limitation.
 
 ## Session Stash Warning
 
@@ -63,10 +60,10 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, add transcription execution orchestration and CLI over
-the application/backend seams without adding a background worker, automatic
-model download, GUI, publication, or real-vault execution. Do not apply the
-stash.
+After review, perform end-to-end transcription workflow validation, including
+operator setup and recovery guidance, without adding a persistent/background
+worker, automatic model download, GUI, publication, or real-vault execution.
+Do not apply the stash.
 
 ## Real-Vault Safety Rule
 

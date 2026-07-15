@@ -105,11 +105,12 @@ the race detector. There is no cross-process guarantee.
 
 ## Current exclusions and next milestone
 
-There is no persistent queue, database, background worker, transcription CLI,
-verified real faster-whisper execution, GUI/tray, note generation, or
-real-vault access.
+There is no persistent queue, database, background worker, automatic polling,
+GUI/tray, note generation, or real-vault access.
 
 Runtime and application integration is described in
 [transcription-runtime.md](transcription-runtime.md), and local execution/artifact
-storage in [transcription-backend.md](transcription-backend.md). The next
-milestone is **Transcription CLI and execution orchestration**.
+storage in [transcription-backend.md](transcription-backend.md). The combined
+process-bound execution decision is in
+[transcription-execution.md](transcription-execution.md). The next milestone is
+**End-to-end transcription workflow validation**.

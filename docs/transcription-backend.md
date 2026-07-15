@@ -148,8 +148,9 @@ downloaded by StudyPilot.
 ## Current limitations and next milestone
 
 The worker and real faster-whisper process boundary are validated on the exact
-local matrix above. There is no transcription CLI, application execution
-orchestration, background worker/daemon, persistent queue, automatic model
-download, GUI/tray, note generation, or publication.
+local matrix above and composed by the application executor described in
+[transcription-execution.md](transcription-execution.md). There is no background
+worker/daemon, persistent queue, automatic model download, GUI/tray, note
+generation, or publication.
 
-The next milestone is **Transcription execution orchestration and CLI**.
+The next milestone is **End-to-end transcription workflow validation**.

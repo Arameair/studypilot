@@ -318,6 +318,17 @@ func TestTranscriptionPersistenceFailuresAreUncertain(t *testing.T) {
 			_, err := f.service.ClaimTranscription(context.Background(), ClaimTranscriptionRequest{TranscriptionMutationRequest: mutationRequest(f, rev), ExpectedQueueStatus: transcription.QueueQueued})
 			return err
 		}},
+		{"start", "runtime_job_status_mismatch", func(t *testing.T, f transcriptionFixture) uint64 {
+			enqueued := enqueueTranscription(t, f, f.session.Revision)
+			claimed, err := f.service.ClaimTranscription(context.Background(), ClaimTranscriptionRequest{TranscriptionMutationRequest: mutationRequest(f, enqueued.Revision), ExpectedQueueStatus: transcription.QueueQueued})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return claimed.Revision
+		}, func(f transcriptionFixture, rev uint64) error {
+			_, err := f.service.StartTranscription(context.Background(), StartTranscriptionRequest{TranscriptionMutationRequest: mutationRequest(f, rev)})
+			return err
+		}},
 		{"complete", "runtime_queue_status_mismatch", setupStarted, func(f transcriptionFixture, rev uint64) error {
 			p, a := completion(f)
 			_, err := f.service.CompleteTranscription(context.Background(), CompleteTranscriptionRequest{TranscriptionMutationRequest: mutationRequest(f, rev), Transcript: transcript(false), Provenance: p, Artifacts: a})
@@ -353,7 +364,7 @@ func TestTranscriptionPersistenceFailuresAreUncertain(t *testing.T) {
 			rev := tt.setup(t, f)
 			wrapper.setFail()
 			err := tt.run(f, rev)
-			if !errors.Is(err, ErrTranscriptionPersistenceUncertain) || Classify(err) != ErrorInternal {
+			if !errors.Is(err, ErrTranscriptionPersistenceUncertain) || Classify(err) != ErrorUncertain {
 				t.Fatalf("err=%v kind=%s", err, Classify(err))
 			}
 			inspection, inspectErr := f.service.InspectTranscription(context.Background(), InspectTranscriptionRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})

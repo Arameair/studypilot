@@ -28,12 +28,15 @@ import (
 // required; production wiring supplies time.Now and course.DefaultIDGenerator,
 // while tests supply fixed clocks and deterministic or failing ID generators.
 type Dependencies struct {
-	Now                   func() time.Time
-	GenerateID            course.IDGenerator
-	SessionRepositories   SessionRepositoryFactory
-	CaptureServices       CaptureServiceFactory
-	TranscriptionQueues   TranscriptionQueueFactory
-	TranscriptionServices TranscriptionServiceFactory
+	Now                    func() time.Time
+	GenerateID             course.IDGenerator
+	SessionRepositories    SessionRepositoryFactory
+	CaptureServices        CaptureServiceFactory
+	TranscriptionQueues    TranscriptionQueueFactory
+	TranscriptionServices  TranscriptionServiceFactory
+	TranscriptionExecution TranscriptionExecutionConfig
+	TranscriptionBackends  TranscriptionBackendFactory
+	TranscriptionStores    TranscriptionArtifactStoreFactory
 }
 
 // Service exposes StudyPilot's shared application use cases.
@@ -52,6 +55,9 @@ type Service struct {
 	transcriptionMutationMu    sync.Mutex
 	transcriptionQueueByRoot   map[string]transcription.Queue
 	transcriptionServiceByRoot map[string]transcription.Service
+	transcriptionExecution     TranscriptionExecutionConfig
+	transcriptionBackends      TranscriptionBackendFactory
+	transcriptionStores        TranscriptionArtifactStoreFactory
 }
 
 // NewService constructs a Service, rejecting missing required dependencies.
@@ -76,9 +82,17 @@ func NewService(deps Dependencies) (*Service, error) {
 	}
 	transcriptionFactory := deps.TranscriptionServices
 	if transcriptionFactory == nil {
-		transcriptionFactory = defaultTranscriptionServiceFactory
+		transcriptionFactory = configuredTranscriptionServiceFactory(deps.TranscriptionExecution, deps.Now)
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}}, nil
+	backendFactory := deps.TranscriptionBackends
+	if backendFactory == nil {
+		backendFactory = defaultTranscriptionBackendFactory
+	}
+	storeFactory := deps.TranscriptionStores
+	if storeFactory == nil {
+		storeFactory = defaultTranscriptionArtifactStoreFactory
+	}
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}, transcriptionExecution: deps.TranscriptionExecution, transcriptionBackends: backendFactory, transcriptionStores: storeFactory}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall

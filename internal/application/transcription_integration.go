@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -349,6 +350,45 @@ func (s *Service) InspectTranscription(ctx context.Context, req InspectTranscrip
 		return TranscriptionInspectionResult{}, newError("InspectTranscription", "inspect queue", err)
 	}
 	result := reconcileTranscription(record, inspection)
+	store, storeErr := s.transcriptionStores(paths, record.Root)
+	if storeErr != nil {
+		result.Issues = append(result.Issues, TranscriptionInspectionIssue{Code: "artifact_inspection_unavailable", Severity: "error", Message: "transcription artifact inspection is unavailable", Recoverable: true})
+	} else {
+		ids := make([]transcription.JobID, 0, len(result.RuntimeStates))
+		for _, state := range result.RuntimeStates {
+			if id, parseErr := transcription.ParseJobID(state.JobID); parseErr == nil {
+				ids = append(ids, id)
+			}
+		}
+		recovery, recoveryErr := store.Inspect(ctx, ids...)
+		if recoveryErr != nil {
+			result.Issues = append(result.Issues, TranscriptionInspectionIssue{Code: "artifact_inspection_failed", Severity: "error", Message: "transcription artifact inspection failed safely", Recoverable: true})
+		} else {
+			for _, issue := range recovery.Issues {
+				result.Issues = append(result.Issues, TranscriptionInspectionIssue{Code: "artifact_" + issue.Code, Severity: issue.Severity, Message: issue.Message, SegmentID: fmt.Sprintf("%03d", issue.SegmentNumber), Recoverable: issue.Recoverable})
+			}
+		}
+	}
+	if s.transcriptionExecution.BackendName != "" {
+		capability, capabilityErr := s.TranscriptionCapabilities(ctx)
+		if capabilityErr != nil {
+			result.Issues = append(result.Issues, TranscriptionInspectionIssue{Code: "backend_inspection_failed", Severity: "error", Message: "transcription backend inspection failed safely", Recoverable: true})
+		} else {
+			for _, issue := range capability.Issues {
+				result.Issues = append(result.Issues, TranscriptionInspectionIssue{Code: "backend_" + issue.Code, Severity: "warning", Message: issue.Message, Recoverable: issue.Recoverable})
+			}
+		}
+	}
+	sort.Slice(result.Issues, func(i, j int) bool {
+		a, b := result.Issues[i], result.Issues[j]
+		if a.Code != b.Code {
+			return a.Code < b.Code
+		}
+		if a.JobID != b.JobID {
+			return a.JobID < b.JobID
+		}
+		return a.SegmentID < b.SegmentID
+	})
 	return result, nil
 }
 

@@ -62,14 +62,15 @@ and are sorted deterministically.
 Runtime summaries survive application reconstruction. `MemoryQueue` does not:
 it is empty after reconstruction. Inspection reports surviving runtime jobs as
 `runtime_job_missing_from_queue`; it does not fabricate ownership, discard
-runtime state, repair, or resume work.
+runtime state, repair, or resume work. Combined CLI `execute` keeps enqueue and
+execution in one process specifically because of this boundary.
 
 ## Current exclusions and next milestone
 
-The local backend/process boundary and durable private artifact store are now
-defined in [transcription-backend.md](transcription-backend.md). Real
-faster-whisper execution remains unverified. There is no persistent queue,
-background worker, transcription CLI, GUI/tray, note generation, model
+The local backend/process boundary and durable private artifact store are
+defined in [transcription-backend.md](transcription-backend.md), and synchronous
+execution in [transcription-execution.md](transcription-execution.md). There is
+no persistent queue, background worker, GUI/tray, note generation, model
 download, publication, or real-vault access.
 
-The next milestone is **Transcription CLI and execution orchestration**.
+The next milestone is **End-to-end transcription workflow validation**.

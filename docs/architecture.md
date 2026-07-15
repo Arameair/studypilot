@@ -1,7 +1,7 @@
 # Architecture
 
-Transcription follows `future CLI/GUI → internal/application →
-internal/transcription → queue/future backend`. `internal/runtime` owns its safe
+Transcription follows `CLI/future GUI → internal/application →
+internal/transcription → queue/backend`. `internal/runtime` owns its safe
 persisted summary and `internal/session` owns atomic revisioned persistence.
 The current queue and fake service are in-process only; adapters do not invoke
 them directly.
@@ -10,6 +10,14 @@ them directly.
 protocol, conservative discovery, and private artifact authority. It remains
 below the transcription domain and cannot import application/session or mutate
 runtime. See [transcription-backend.md](transcription-backend.md).
+
+The application-owned synchronous executor composes one in-memory queue,
+lifecycle service, selected backend, session-scoped artifact store, and
+revisioned runtime repository for one explicit job. The CLI exposes combined
+`transcription execute` rather than misleading standalone enqueue/run commands,
+because queue ownership does not survive a process restart. Restart inspection
+reports the durable runtime-only job and validates artifacts without fabricating
+queue state. See [transcription-execution.md](transcription-execution.md).
 
 StudyPilot is designed around three repositories that remain operationally and
 historically separate.
@@ -99,12 +107,13 @@ result rather than as errors; a caller decides how to treat them.
 
 Failures are reported as a typed `application.Error` carrying a stable
 `ErrorKind` (`invalid_input`, `not_found`, `conflict`, `collision`, `ambiguous`,
-`unsafe`, `cancelled`, `internal`). `Classify` maps any error — including wrapped
-domain sentinels and context cancellation — to a kind, and the error preserves
-the underlying domain cause for `errors.Is`/`errors.As`. Adapters map kinds to
-their own concerns (the CLI maps `invalid_input` to exit code 2 and every other
-failure to 1) without inspecting message text. Application error messages are
-fixed operation phrases and never embed file contents or secrets.
+`unsafe`, `cancelled`, `timeout`, `uncertain`, `internal`). `Classify` maps any
+error — including wrapped domain sentinels and context cancellation — to a kind,
+and the error preserves the underlying domain cause for `errors.Is`/`errors.As`.
+Adapters map kinds to their own concerns (the CLI maps usage/invalid input to
+exit code 2, interruption to 130, and operational failures to 1) without
+inspecting message text. Application error messages are fixed operation phrases
+and never embed file contents or secrets.
 
 ## Authority-checked operational mutation
 
@@ -217,17 +226,17 @@ backend/model capability descriptions, transcript and partial-result models,
 provenance, relative artifact naming, and safe classified errors. Its
 deterministic fake and unavailable service perform no filesystem or process I/O.
 
-The dependency direction is `future adapter → internal/application →
-internal/transcription → future backend`. Transcription never imports the
-application, session, capture backend, or CLI packages. Queue persistence,
-retry, reconciliation, runtime mapping, orchestration, and real transcription
-remain future work. See [transcription-contracts.md](transcription-contracts.md).
+The dependency direction is `adapter → internal/application →
+internal/transcription and transcription/backend`. Transcription never imports
+the application, session, capture backend, or CLI packages. Application owns
+runtime orchestration; the backend owns process execution and artifacts. See
+[transcription-contracts.md](transcription-contracts.md).
 
 Queue scheduling remains inside the transcription domain. `QueueStatus` is
 separate from execution-oriented `JobStatus`; the in-memory implementation
 provides deterministic idempotency, logical claims, explicit retry transitions,
 and read-only reconciliation without persistence or workers. Application owns
-only a future composition alias. See
+the composition and exposes the process-bound combined execute flow. See
 [transcription-queue.md](transcription-queue.md).
 
 ## Session CLI adapter and tolerant inspection

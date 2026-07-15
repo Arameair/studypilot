@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Arameair/studypilot/internal/transcription"
@@ -19,10 +20,10 @@ type Discovery interface {
 }
 
 type LocalConfig struct {
-	Runner                                       ProcessRunner
-	Discovery                                    Discovery
-	Python, Worker, BackendVersion, ModelVersion string
-	Clock                                        func() time.Time
+	Runner                                                ProcessRunner
+	Discovery                                             Discovery
+	Python, Worker, BackendVersion, ModelVersion, ModelID string
+	Clock                                                 func() time.Time
 }
 type LocalBackend struct{ config LocalConfig }
 
@@ -59,7 +60,11 @@ func (b *LocalBackend) Capabilities(ctx context.Context) (transcription.BackendC
 	if !pkg {
 		issues = append(issues, transcription.CapabilityIssue{Code: "backend_unavailable", Message: "faster-whisper is not verified available"})
 	}
-	modelAvailable := python && worker && pkg && b.config.Discovery.Model(ctx, "faster-whisper/small.en")
+	modelID := b.config.ModelID
+	if modelID == "" {
+		modelID = "faster-whisper/small.en"
+	}
+	modelAvailable := python && worker && pkg && b.config.Discovery.Model(ctx, modelID)
 	if !modelAvailable {
 		issues = append(issues, transcription.CapabilityIssue{Code: "model_missing", Message: "configured transcription model is not verified available"})
 	}
@@ -68,7 +73,7 @@ func (b *LocalBackend) Capabilities(ctx context.Context) (transcription.BackendC
 	models := []transcription.Model{}
 	if python && worker && pkg {
 		status = transcription.CapabilityDegraded
-		models = []transcription.Model{{ID: "faster-whisper/small.en", Name: "small.en", Version: b.config.ModelVersion, Backend: "faster-whisper", Languages: []string{"en"}, Installed: modelAvailable, Available: modelAvailable}}
+		models = []transcription.Model{{ID: modelID, Name: strings.TrimPrefix(modelID, "faster-whisper/"), Version: b.config.ModelVersion, Backend: "faster-whisper", Languages: []string{"en"}, Installed: modelAvailable, Available: modelAvailable}}
 		if modelAvailable {
 			status = transcription.CapabilityReady
 			issues = nil

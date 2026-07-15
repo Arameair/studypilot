@@ -109,3 +109,11 @@ type RequeueTranscriptionRequest struct {
 	ExpectedQueueStatus transcription.QueueStatus
 }
 type InspectTranscriptionRequest struct{ Root, CourseRef, ModuleRef, SessionRef string }
+
+type ExecuteTranscriptionRequest struct {
+	Root, CourseRef, ModuleRef, SessionRef string
+	SegmentID, Backend, Model, Language    string
+	IdempotencyKey                         string
+	MaxAttempts                            int
+	ExpectedRevision                       uint64
+}

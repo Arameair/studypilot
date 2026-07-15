@@ -2,13 +2,11 @@
 
 ## Current Milestone
 
-Operational Faster-Whisper Worker and Backend Validation adds the managed,
-versioned Python worker, pinned dependency and isolated-environment guidance,
-strict stdin/stdout protocol implementation, explicit no-download model
-configuration, mocked worker tests, reproducible setup/validation scripts, and
-an opt-in real Go process integration test. Real faster-whisper execution has
-passed with Python 3.13.5, faster-whisper 1.2.1, ctranslate2 4.8.1, av 18.0.0,
-CPU/int8, and an explicitly configured cached local validation model.
+Transcription Execution Orchestration and CLI composes the in-memory queue,
+lifecycle service, selected backend, durable artifact store, and revisioned
+runtime repository for one explicit synchronous job. The safe CLI MVP provides
+combined `execute`, read-only `inspect`, and `capabilities`; real local CLI
+execution passed on temporary purpose-created speech.
 
 ## Completed Capabilities
 
@@ -60,6 +58,9 @@ CPU/int8, and an explicitly configured cached local validation model.
   tests, and opt-in temporary-workspace Go integration validation
 - Real direct-worker and Go-process transcription validation on Python 3.13.5,
   with a non-empty English transcript and unchanged source WAV identity
+- Application-owned enqueue/claim/start/backend/store/complete execution with
+  exact four-revision success, classified failure persistence, uncertain-state
+  handling, restart artifact inspection, and human/JSON CLI output
 
 ## Package Map
 
@@ -74,8 +75,7 @@ private transcript artifact durability without runtime or session authority.
 
 ## Known Limitations
 
-No real-vault recording, persistent
-transcription queue/worker, transcription CLI, desktop UI, public
+No real-vault recording, persistent transcription queue/worker, desktop UI, public
 migration application, rollback command, cross-process mutation lock, or
 cross-process recording ownership enforcement exists. Recording device discovery
 is conservative: a Linux recorder executable is not treated as a confirmed
@@ -90,7 +90,7 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Transcription execution orchestration and CLI. Do not restore the stash or add
+End-to-end transcription workflow validation. Do not restore the stash or add
 a background worker, automatic model download, GUI, publication, or real-vault
 execution automatically.
 

@@ -133,8 +133,9 @@ network, external executable, or model store.
 
 ## Current exclusions and next milestone
 
-There is no persistent queue, CLI, operational faster-whisper worker, verified
-real transcription, background worker, GUI/tray, or note generation.
+Synchronous CLI execution is defined in
+[transcription-execution.md](transcription-execution.md). There is no persistent
+queue, background worker, GUI/tray, automatic transcription, or note generation.
 
 Logical queue, retry, and read-only reconciliation contracts are now defined in
 [transcription-queue.md](transcription-queue.md), and runtime/application
@@ -142,4 +143,4 @@ integration is described in
 [transcription-runtime.md](transcription-runtime.md). Local execution and
 durable artifacts are defined in
 [transcription-backend.md](transcription-backend.md). The next milestone is
-**Transcription CLI and execution orchestration**.
+**End-to-end transcription workflow validation**.

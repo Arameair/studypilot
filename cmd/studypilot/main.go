@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"time"
@@ -38,13 +39,20 @@ Usage:
   studypilot module create --course NAME --number NUMBER --name NAME [--dry-run] [--root PATH]
   studypilot session <subcommand> ...   (run 'studypilot session help' for details)
   studypilot capture <subcommand> ...   (run 'studypilot capture help' for details)
+  studypilot transcription <subcommand> ...   (run 'studypilot transcription help' for details)
 `
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	os.Exit(runContext(ctx, os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	return runContext(context.Background(), args, stdout, stderr)
+}
+
+func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		return writeUsage(stdout)
 	}
@@ -73,6 +81,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runSession(args[1:], stdout, stderr)
 	case "capture":
 		return runCapture(args[1:], stdout, stderr)
+	case "transcription":
+		return runTranscription(ctx, args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}

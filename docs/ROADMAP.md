@@ -87,9 +87,15 @@ transcription passed on Python 3.13.5 with faster-whisper 1.2.1, ctranslate2
 model. The source WAV remained unchanged and no model was downloaded by
 StudyPilot.
 
-## Next Milestone — Transcription execution orchestration and CLI (future)
-Connect explicit application and CLI execution to the existing backend and
-durable store without adding an automatic worker or model download.
+## Transcription Execution Orchestration and CLI (complete)
+Combined synchronous `execute` coordinates enqueue, claim, running state, real
+backend execution, durable artifacts, and completion with exact revision
+progression. `inspect` unifies runtime, queue, artifact, and backend diagnostics;
+`capabilities` is read-only. The in-memory queue boundary remains explicit.
+
+## Next Milestone — End-to-end transcription workflow validation (future)
+Validate the complete operator workflow and recovery guidance without adding a
+background worker, persistent queue, or automatic model download.
 
 ## Phase 19 — Asset Import and Routing (future)
 Safe private attachment routing.

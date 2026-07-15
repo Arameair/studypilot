@@ -144,6 +144,16 @@ type TranscriptionInspectionResult struct {
 	Issues          []TranscriptionInspectionIssue
 }
 
+type ExecuteTranscriptionResult struct {
+	JobID, SegmentID, JobStatus, QueueStatus                     string
+	SegmentNumber, Attempt, MaxAttempts, SegmentCount, WordCount int
+	RuntimeRevision                                              uint64
+	TranscriptJSONRelativePath, TranscriptTextRelativePath       string
+	ProvenanceRelativePath, JobMetadataRelativePath, Language    string
+	DurationMillis                                               int64
+	Completed, DurabilityWarning                                 bool
+}
+
 func planResult(plan filesystem.Plan) PlanResult {
 	operations := make([]PlannedOperation, len(plan.Operations))
 	for i, operation := range plan.Operations {

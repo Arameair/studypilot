@@ -24,9 +24,9 @@ func TestClassifyTranscriptionErrors(t *testing.T) {
 		{transcription.ErrorUnavailable, ErrorNotFound},
 		{transcription.ErrorPermissionDenied, ErrorUnsafe},
 		{transcription.ErrorCancelled, ErrorCancelled},
-		{transcription.ErrorTimeout, ErrorInternal},
+		{transcription.ErrorTimeout, ErrorTimeout},
 		{transcription.ErrorPartialOutput, ErrorConflict},
-		{transcription.ErrorUncertain, ErrorInternal},
+		{transcription.ErrorUncertain, ErrorUncertain},
 		{transcription.ErrorInternal, ErrorInternal},
 	}
 	for _, tt := range tests {
@@ -43,7 +43,7 @@ func TestClassifyTranscriptionErrors(t *testing.T) {
 	if Classify(context.Canceled) != ErrorCancelled || Classify(context.DeadlineExceeded) != ErrorCancelled {
 		t.Fatal("generic context classification regressed")
 	}
-	if Classify(errors.Join(ErrTranscriptionPersistenceUncertain, errors.New("synthetic persistence"))) != ErrorInternal {
+	if Classify(errors.Join(ErrTranscriptionPersistenceUncertain, errors.New("synthetic persistence"))) != ErrorUncertain {
 		t.Fatal("uncertain persistence classification")
 	}
 }

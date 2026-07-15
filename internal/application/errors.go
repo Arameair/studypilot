@@ -24,6 +24,8 @@ const (
 	ErrorAmbiguous    ErrorKind = "ambiguous"
 	ErrorUnsafe       ErrorKind = "unsafe"
 	ErrorCancelled    ErrorKind = "cancelled"
+	ErrorTimeout      ErrorKind = "timeout"
+	ErrorUncertain    ErrorKind = "uncertain"
 	ErrorInternal     ErrorKind = "internal"
 )
 
@@ -113,7 +115,7 @@ func Classify(err error) ErrorKind {
 // therefore remain internal.
 func classifyTranscription(err error) (ErrorKind, bool) {
 	if errors.Is(err, ErrTranscriptionPersistenceUncertain) {
-		return ErrorInternal, true
+		return ErrorUncertain, true
 	}
 	switch transcription.CodeOf(err) {
 	case "":
@@ -131,6 +133,10 @@ func classifyTranscription(err error) (ErrorKind, bool) {
 		return ErrorUnsafe, true
 	case transcription.ErrorCancelled:
 		return ErrorCancelled, true
+	case transcription.ErrorTimeout:
+		return ErrorTimeout, true
+	case transcription.ErrorUncertain:
+		return ErrorUncertain, true
 	default:
 		return ErrorInternal, true
 	}
