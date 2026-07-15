@@ -6,3 +6,6 @@ coverage.out
 .DS_Store
 .idea/
 .vscode/
+/tools/transcription-worker/.venv/
+**/__pycache__/
+*.py[cod]

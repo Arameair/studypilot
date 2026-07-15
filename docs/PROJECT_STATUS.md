@@ -2,11 +2,13 @@
 
 ## Current Milestone
 
-Local Transcription Backend and Durable Artifact Persistence adds a deterministic
-synthetic backend, a fixed local Python/faster-whisper protocol boundary,
-conservative discovery, private artifact authority, atomic partial-to-final
-storage, and read-only recovery inspection. Real faster-whisper execution is
-not verified.
+Operational Faster-Whisper Worker and Backend Validation adds the managed,
+versioned Python worker, pinned dependency and isolated-environment guidance,
+strict stdin/stdout protocol implementation, explicit no-download model
+configuration, mocked worker tests, reproducible setup/validation scripts, and
+an opt-in real Go process integration test. Real faster-whisper execution is
+not verified because this host lacks a supported configured Python environment,
+the package, and a local model.
 
 ## Completed Capabilities
 
@@ -52,6 +54,10 @@ not verified.
 - Private session-scoped transcript JSON/text, provenance, and job metadata;
   SHA-256 source binding; partial-to-final durability with metadata installed
   last; linked-path rejection; and deterministic recovery inspection
+- Managed version-1 Python worker with strict bounded input, finalized-WAV
+  validation, safe signal/error handling, monotonic transcript serialization,
+  pinned `faster-whisper==1.2.1`, explicit local-only model loading, mocked unit
+  tests, and opt-in temporary-workspace Go integration validation
 
 ## Package Map
 
@@ -82,7 +88,7 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Transcription CLI and execution orchestration. Do not restore the stash or add
+Transcription execution orchestration and CLI. Do not restore the stash or add
 a background worker, automatic model download, GUI, publication, or real-vault
 execution automatically.
 

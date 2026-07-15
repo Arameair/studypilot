@@ -37,6 +37,19 @@ unsupported versions, identity mismatches, contradictory partial/final status,
 invalid transcript timing, and output over 8 MiB. The absolute input path is
 never persisted or returned by public-facing contracts.
 
+The managed worker lives in `tools/transcription-worker`. It validates a
+single request of at most 64 KiB, accepts only the fixed `--protocol json-v1`
+argument, verifies that input is a regular finalized WAV, and writes exactly
+one result to stdout. It uses the pinned `faster-whisper==1.2.1` dependency and
+supports Python 3.10–3.12 for operational use.
+
+Model configuration is explicit through
+`STUDYPILOT_TRANSCRIPTION_MODEL`, `STUDYPILOT_TRANSCRIPTION_DEVICE`, and
+`STUDYPILOT_TRANSCRIPTION_COMPUTE_TYPE`. The worker constructs
+`WhisperModel` with `local_files_only=True`; neither Go nor Python searches for
+or downloads a model. The validation path additionally requires an absolute
+existing model directory.
+
 ## Capability discovery
 
 Discovery conservatively verifies the configured Python executable, a regular
@@ -106,11 +119,30 @@ runners, and deterministic transcript text. No real vault, course material,
 microphone, model store, network, cloud service, or publication repository is
 accessed.
 
+The Python worker does not write transcript artifacts. It returns protocol
+data only; the existing Go store remains the sole artifact persistence
+boundary. SIGINT and SIGTERM produce a non-zero cancellation result without
+success JSON, while the Go runner retains timeout, interrupt, force-kill, and
+bounded-output responsibility.
+
+## Operational validation
+
+Mocked Python unit tests exercise request validation, strict fields, finalized
+WAV checks, serialization, safe errors, and signal behavior without importing
+faster-whisper. A normally skipped Go integration test uses the real process
+backend, a temporary session tree, an explicitly configured local model, and a
+purpose-created speech WAV. It validates identity and protocol output and
+compares source SHA-256 before and after transcription.
+
+The current host has Python 3.13.5, no importable `faster_whisper` package, and
+no configured local model. Consequently, real faster-whisper execution remains
+incomplete; no success is claimed and no dependency or model was downloaded.
+
 ## Current limitations and next milestone
 
-The faster-whisper boundary is defined but real faster-whisper execution is not
-verified. There is no bundled operational Python worker, transcription CLI,
-application execution orchestration, background worker, persistent queue,
-automatic model download, GUI/tray, note generation, or publication.
+The worker is implemented, but real faster-whisper execution is not verified
+on this host. There is no transcription CLI, application execution
+orchestration, background worker/daemon, persistent queue, automatic model
+download, GUI/tray, note generation, or publication.
 
-The next milestone is **Transcription CLI and execution orchestration**.
+The next milestone is **Transcription execution orchestration and CLI**.

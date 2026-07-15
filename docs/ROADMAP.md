@@ -77,15 +77,23 @@ Synthetic execution, strict local worker protocol, conservative discovery,
 private transcript/provenance/job artifacts, atomic completion-marker ordering,
 and read-only recovery inspection. Real faster-whisper remains unverified.
 
-## Next Milestone — Transcription CLI and execution orchestration (future)
-Connect explicit CLI/application execution to the backend and durable store
-without adding an automatic worker or model download.
+## Operational Faster-Whisper Worker and Backend Validation (implementation complete; real validation incomplete)
+The managed version-1 Python worker, pinned dependency, strict protocol,
+explicit local-only model loading, mocked tests, setup/validation scripts, and
+opt-in Go process integration test are implemented. Real execution was not run:
+the current host has Python 3.13.5, no importable faster-whisper package, and no
+configured model. No package or model was downloaded automatically.
+
+## Next Milestone — Transcription execution orchestration and CLI (future)
+Connect explicit application and CLI execution to the existing backend and
+durable store without adding an automatic worker or model download.
 
 ## Phase 19 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 20 — Transcription Backend Validation (future)
-Whisper and derived transcripts.
+## Phase 20 — Transcription Backend Validation (in progress)
+The worker and validation harness exist; one explicitly configured real local
+model run remains outstanding.
 
 ## Phase 21 — Diagnostics (future)
 Repair reports and operational checks.

@@ -46,11 +46,13 @@ real vaults.
 
 ## Current Milestone
 
-The local transcription backend boundary now includes deterministic synthetic
-execution, strict JSON protocol decoding, conservative component discovery,
-bounded shell-free process execution, session-scoped artifact authority,
-durable JSON/text/provenance/job files, and read-only recovery inspection. It
-is not yet connected to CLI execution and real faster-whisper is unverified.
+The local transcription backend now has a managed version-1 Python worker under
+`tools/transcription-worker`, a pinned dependency, explicit local-only model
+configuration, strict bounded JSON and finalized-WAV validation, safe signal
+handling, mocked Python unit tests, and an opt-in temporary-workspace Go process
+test. The worker writes no StudyPilot artifacts. Real faster-whisper is still
+unverified: this host has Python 3.13.5, no importable package, and no configured
+model, so no operational success is claimed.
 
 ## Session Stash Warning
 
@@ -59,7 +61,7 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, add explicit transcription CLI and execution orchestration over
+After review, add transcription execution orchestration and CLI over
 the application/backend seams without adding a background worker, automatic
 model download, GUI, publication, or real-vault execution. Do not apply the
 stash.
