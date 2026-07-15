@@ -99,15 +99,22 @@ passed in isolated temporary workspaces. Structural artifacts, source
 immutability, revisions, stale callers, restart behavior, and recovery
 diagnostics are covered by the reusable validation harness and normal tests.
 
-## Next Milestone — Study artifact organization: transcripts, notes, and assets (future)
-Define how private transcripts, notes, and related assets are organized without
-adding publication automation or weakening the vault boundary.
+## Study Artifact Organization: Transcripts, Notes, and Assets (complete)
+Private transcript, note, and asset identities; canonical paths; bounded asset
+copy; completed-transcript validation; a single revisioned per-module index;
+explicit discovery, refresh, and reconciliation; application use cases; and
+thin CLI commands are implemented without content generation or publication.
 
 The intended sequence is artifact organization, then the initial local GUI,
 then a real course usability test.
 
-## Phase 19 — Asset Import and Routing (future)
-Safe private attachment routing.
+## Next Milestone — Initial local GUI architecture and application API (future)
+Define a local desktop adapter and GUI-facing application API without moving
+domain, persistence, privacy, or workflow authority into the UI.
+
+## Phase 19 — Asset Import and Routing (complete)
+Safe bounded private module/session asset registration is part of study artifact
+organization. Broader routing and content parsing remain excluded.
 
 ## Phase 20 — Transcription Backend Validation (complete)
 The worker and real Go process boundary passed an explicitly configured local

@@ -40,6 +40,9 @@ Usage:
   studypilot session <subcommand> ...   (run 'studypilot session help' for details)
   studypilot capture <subcommand> ...   (run 'studypilot capture help' for details)
   studypilot transcription <subcommand> ...   (run 'studypilot transcription help' for details)
+  studypilot artifacts <subcommand> ...   (run 'studypilot artifacts help' for details)
+  studypilot notes <subcommand> ...
+  studypilot assets <subcommand> ...
 `
 
 func main() {
@@ -83,6 +86,8 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return runCapture(args[1:], stdout, stderr)
 	case "transcription":
 		return runTranscription(ctx, args[1:], stdout, stderr)
+	case "artifacts", "notes", "assets":
+		return runStudyArtifacts(ctx, args[0], args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}

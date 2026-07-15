@@ -118,9 +118,11 @@ contents or a model path.
 
 ## Known limitations
 
-The queue remains process-local. There is no persistent queue, background
-worker, daemon, GUI/tray, automatic model download, notes/assets workflow,
-publication integration, or real course usability test.
+The queue remains process-local. Study artifact organization now inventories
+completed transcript evidence and supports user-authored notes and copied
+assets, but there is still no persistent queue, background worker, daemon,
+GUI/tray, automatic model download, content generation, publication
+integration, or real course usability test.
 
 ## Final validation status
 
@@ -129,11 +131,10 @@ publication integration, or real course usability test.
 No production defect was found. The validated delivery sequence is:
 
 ```text
-end-to-end transcription validation
-→ transcript/notes/assets organization
+end-to-end transcription validation (complete)
+→ transcript/notes/assets organization (complete)
 → initial local GUI
 → real course usability test
 ```
 
-The next milestone is **Study artifact organization: transcripts, notes, and
-assets**.
+The next milestone is **Initial local GUI architecture and application API**.

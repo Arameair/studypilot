@@ -25,6 +25,15 @@ binds capture manifests, transcript documents, text, provenance, job metadata,
 runtime revisions, and restart diagnostics without using a real vault. See
 [transcription-workflow-validation.md](transcription-workflow-validation.md).
 
+The private study inventory follows `CLI/future GUI → internal/application →
+internal/studyartifact → managed private module storage`. `studyartifact` owns
+transcript, note, and asset identities, canonical note/asset paths, the single
+module-local revisioned index, and read-only reconciliation. It does not import
+the CLI, application, or transcription backend. The transcription subsystem
+remains authoritative for completed transcript artifacts; the inventory only
+validates and references that evidence. See
+[study-artifacts.md](study-artifacts.md).
+
 StudyPilot is designed around three repositories that remain operationally and
 historically separate.
 
@@ -179,7 +188,8 @@ regeneration. User-created headings and unmarked content remain untouched.
 
 Executable adapters live under `cmd/`; focused packages live under
 `internal/application`, `capture` (with `capture/backend`), `course`,
-`filesystem`, `migration`, `runtime`, `schema`, `session`, and `workspace`.
+`filesystem`, `migration`, `runtime`, `schema`, `session`, `studyartifact`, and
+`workspace`.
 Future capabilities receive focused packages, and desktop adapters belong under
 `cmd/studypilot-desktop` and `ui/desktop`. Generic dumping-ground packages are
 prohibited.

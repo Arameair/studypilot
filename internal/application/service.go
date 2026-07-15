@@ -20,6 +20,7 @@ import (
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
+	"github.com/Arameair/studypilot/internal/studyartifact"
 	"github.com/Arameair/studypilot/internal/transcription"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
@@ -37,6 +38,7 @@ type Dependencies struct {
 	TranscriptionExecution TranscriptionExecutionConfig
 	TranscriptionBackends  TranscriptionBackendFactory
 	TranscriptionStores    TranscriptionArtifactStoreFactory
+	StudyArtifactStores    StudyArtifactStoreFactory
 }
 
 // Service exposes StudyPilot's shared application use cases.
@@ -58,6 +60,8 @@ type Service struct {
 	transcriptionExecution     TranscriptionExecutionConfig
 	transcriptionBackends      TranscriptionBackendFactory
 	transcriptionStores        TranscriptionArtifactStoreFactory
+	studyArtifactStores        StudyArtifactStoreFactory
+	studyArtifactMutationMu    sync.Mutex
 }
 
 // NewService constructs a Service, rejecting missing required dependencies.
@@ -92,7 +96,13 @@ func NewService(deps Dependencies) (*Service, error) {
 	if storeFactory == nil {
 		storeFactory = defaultTranscriptionArtifactStoreFactory
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}, transcriptionExecution: deps.TranscriptionExecution, transcriptionBackends: backendFactory, transcriptionStores: storeFactory}, nil
+	artifactFactory := deps.StudyArtifactStores
+	if artifactFactory == nil {
+		artifactFactory = func(ctx studyartifact.Context, clock func() time.Time, generate studyartifact.IDGenerator) (StudyArtifactStore, error) {
+			return studyartifact.NewStore(ctx, clock, generate)
+		}
+	}
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}, transcriptionExecution: deps.TranscriptionExecution, transcriptionBackends: backendFactory, transcriptionStores: storeFactory, studyArtifactStores: artifactFactory}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall

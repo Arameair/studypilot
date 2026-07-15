@@ -8,6 +8,7 @@ import (
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
 	"github.com/Arameair/studypilot/internal/session"
+	"github.com/Arameair/studypilot/internal/studyartifact"
 	"github.com/Arameair/studypilot/internal/transcription"
 )
 
@@ -79,6 +80,18 @@ func Classify(err error) ErrorKind {
 	}
 	if kind, ok := classifyTranscription(err); ok {
 		return kind
+	}
+	if errors.Is(err, studyartifact.ErrPersistenceUncertain) {
+		return ErrorUncertain
+	}
+	if errors.Is(err, studyartifact.ErrRevisionConflict) || errors.Is(err, studyartifact.ErrConflict) {
+		return ErrorConflict
+	}
+	if errors.Is(err, studyartifact.ErrNotFound) {
+		return ErrorNotFound
+	}
+	if errors.Is(err, studyartifact.ErrInvalid) {
+		return ErrorInvalidInput
 	}
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):

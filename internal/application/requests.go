@@ -117,3 +117,34 @@ type ExecuteTranscriptionRequest struct {
 	MaxAttempts                            int
 	ExpectedRevision                       uint64
 }
+
+type StudyArtifactModuleRequest struct{ Root, CourseRef, ModuleRef string }
+type CreateModuleNotesRequest struct {
+	StudyArtifactModuleRequest
+	Title                    string
+	ExpectedArtifactRevision uint64
+}
+type CreateSessionNotesRequest struct {
+	StudyArtifactModuleRequest
+	SessionRef, Title        string
+	ExpectedArtifactRevision uint64
+}
+type RegisterModuleAssetRequest struct {
+	StudyArtifactModuleRequest
+	SourcePath, Title, Category string
+	ExpectedArtifactRevision    uint64
+}
+type RegisterSessionAssetRequest struct {
+	StudyArtifactModuleRequest
+	SessionRef, SourcePath, Title, Category string
+	ExpectedArtifactRevision                uint64
+}
+type ListStudyArtifactsRequest struct {
+	StudyArtifactModuleRequest
+	SessionRef, Type, Category string
+}
+type InspectStudyArtifactsRequest struct{ StudyArtifactModuleRequest }
+type RefreshStudyArtifactIndexRequest struct {
+	StudyArtifactModuleRequest
+	ExpectedArtifactRevision uint64
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Arameair/studypilot/internal/course"
 	"github.com/Arameair/studypilot/internal/filesystem"
+	"github.com/Arameair/studypilot/internal/studyartifact"
 )
 
 func TestNewServiceRejectsMissingDependencies(t *testing.T) {
@@ -48,6 +49,10 @@ func TestClassify(t *testing.T) {
 		{name: "unmanaged directory", err: course.ErrUnmanagedDirectory, want: ErrorConflict},
 		{name: "malformed metadata", err: course.ErrMalformedMetadata, want: ErrorConflict},
 		{name: "unsafe path", err: filesystem.ErrUnsafePath, want: ErrorUnsafe},
+		{name: "artifact invalid", err: studyartifact.ErrInvalid, want: ErrorInvalidInput},
+		{name: "artifact missing", err: studyartifact.ErrNotFound, want: ErrorNotFound},
+		{name: "artifact revision", err: studyartifact.ErrRevisionConflict, want: ErrorConflict},
+		{name: "artifact uncertain", err: studyartifact.ErrPersistenceUncertain, want: ErrorUncertain},
 		{name: "wrapped collision", err: fmt.Errorf("stage: %w", course.ErrCollision), want: ErrorCollision},
 		{name: "typed error", err: &Error{Kind: ErrorCollision}, want: ErrorCollision},
 		{name: "unknown", err: errors.New("boom"), want: ErrorInternal},

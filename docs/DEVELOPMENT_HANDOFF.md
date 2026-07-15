@@ -25,7 +25,8 @@ dumping-ground packages.
 UI-neutral capture behavior contracts, `capture/backend` the real recording
 backends, `application` UI-neutral lifecycle orchestration plus the
 capture-service contract, `transcription/backend` local execution plus private
-artifact durability, and `cmd/studypilot` the thin CLI adapter.
+transcript durability, `studyartifact` the private transcript/note/asset
+inventory, and `cmd/studypilot` the thin CLI adapter.
 
 ## Privacy Boundaries
 
@@ -46,11 +47,11 @@ real vaults.
 
 ## Current Milestone
 
-The complete temporary-workspace workflow is validated through two-segment
-synthetic capture/transcription and a real local faster-whisper CLI run.
-Structural artifact parsing, source immutability, exact revisions, explicit
-session completion, stale callers, intermediate restart states, and safe
-restart diagnostics all pass. Queue state remains process-local.
+Study artifact organization is implemented. Completed transcript evidence is
+indexed without transcript text; module/session notes are empty user-editable
+templates; supporting assets are safely copied; and one module-local index has
+expected-revision mutation, explicit refresh, and read-only reconciliation.
+All validation uses temporary workspaces and synthetic content.
 
 ## Session Stash Warning
 
@@ -59,9 +60,10 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, define private study artifact organization for transcripts, notes,
-and assets. The intended sequence is artifact organization, initial local GUI,
-then a real course usability test. Do not add publication automation, persistent
+Define **Initial local GUI architecture and application API**. Keep the GUI a
+thin adapter over `internal/application`, then conduct a separately approved
+real course usability test. Do not add AI note generation, summarization, RAG,
+an internal tutor, publication automation, file watching, background artifact
 workers, or real-vault tests, and do not apply the stash.
 
 ## Real-Vault Safety Rule

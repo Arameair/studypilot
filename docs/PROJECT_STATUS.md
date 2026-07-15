@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-End-to-end Transcription Workflow Validation proves the complete temporary
-operator path across workspace setup, session lifecycle, pause/resume capture,
-two-segment synthetic transcription, real local faster-whisper execution,
-durable artifacts, explicit session completion, restart, and inspection. No
-production defect was found.
+Study Artifact Organization connects completed private transcripts,
+user-authored module/session notes, and copied supporting assets through a
+single revisioned per-module index. Discovery and inspection are explicit,
+restart-safe, read-only operations; refresh rebuilds only the index from valid
+managed evidence.
 
 ## Completed Capabilities
 
@@ -64,6 +64,13 @@ production defect was found.
 - Reproducible CLI workflow validation with structural capture/transcript/
   provenance/job checks, source SHA-256/size/mtime preservation, stale-revision
   protection, intermediate-state restart coverage, and safe output auditing
+- Random study-artifact identities and validated module/session/segment scopes;
+  canonical Markdown note templates; bounded exclusive asset copy; completed
+  transcript indexing; metadata-only session-note links; atomic revisioned
+  module indexes; deterministic inspection and explicit refresh
+- UI-neutral artifact application use cases and thin human/JSON CLI commands
+  that exclude transcript bodies, note bodies, absolute roots, and external
+  asset source paths
 
 ## Package Map
 
@@ -74,17 +81,17 @@ identity; `session` owns session identity, operational persistence, and the
 tolerant read-only scan; `workspace` owns vault contracts; `filesystem` owns
 creation and mutation; `runtime` owns status contracts; `schema` owns documents;
 `migration` owns upgrades; `transcription/backend` owns local execution and
-private transcript artifact durability without runtime or session authority.
+private transcript artifact durability without runtime or session authority;
+`studyartifact` owns the private transcript/note/asset inventory without
+transcript creation or publication authority.
 
 ## Known Limitations
 
-No real-vault recording, persistent transcription queue/worker, desktop UI, public
-migration application, rollback command, cross-process mutation lock, or
-cross-process recording ownership enforcement exists. Recording device discovery
-is conservative: a Linux recorder executable is not treated as a confirmed
-microphone. History is stored as immutable records rather than shared JSONL. The
-incomplete `list` fails closed on a malformed sibling; tolerant diagnosis is
-available through `session inspect --all`.
+No real-vault recording or usability test, persistent transcription queue,
+desktop UI, file watcher, artifact background worker, AI note generation,
+summarization, RAG, internal tutor, publication automation, public migration
+application, rollback command, cross-process artifact/mutation lock, or
+cross-process recording ownership enforcement exists.
 
 ## Session Stash Warning
 
@@ -93,9 +100,10 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Study artifact organization: transcripts, notes, and assets. Preserve the
-private/public boundary and do not restore the stash or add a background
-worker, automatic model download, publication automation, or real-vault tests.
+Initial local GUI architecture and application API. The GUI must remain an
+adapter over `internal/application`; it must not bypass artifact, session,
+capture, transcription, filesystem, or privacy authorities. A real course
+usability test follows that architecture milestone.
 
 ## Verification
 

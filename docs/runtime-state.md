@@ -19,6 +19,14 @@ Completed summaries may additionally reference a relative provenance artifact.
 The backend installs durable artifacts independently; runtime coordination
 remains an application responsibility and is never inferred from files alone.
 
+The study-artifact layer now consumes completed per-segment transcription state
+as one side of a three-way reconciliation with durable transcript artifacts and
+course/module/session identity. Runtime remains authoritative for job
+completion, while transcription storage remains authoritative for transcript
+files. The module-local study index only records validated relative references;
+it does not become a second runtime authority or contain transcript text. See
+[study-artifacts.md](study-artifacts.md).
+
 ## Independent dimensions
 
 | Dimension | States |

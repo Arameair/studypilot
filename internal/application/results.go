@@ -3,6 +3,7 @@ package application
 import (
 	"github.com/Arameair/studypilot/internal/filesystem"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
+	"github.com/Arameair/studypilot/internal/studyartifact"
 	"github.com/Arameair/studypilot/internal/transcription"
 )
 
@@ -152,6 +153,26 @@ type ExecuteTranscriptionResult struct {
 	ProvenanceRelativePath, JobMetadataRelativePath, Language    string
 	DurationMillis                                               int64
 	Completed, DurabilityWarning                                 bool
+}
+
+type StudyArtifactMutationResult struct {
+	Artifact          studyartifact.Record
+	Revision          uint64
+	DurabilityWarning bool
+}
+type StudyArtifactListResult struct {
+	Revision  uint64
+	Artifacts []studyartifact.Record
+}
+type StudyArtifactInspectionResult struct {
+	Revision  uint64
+	Artifacts []studyartifact.Record
+	Issues    []studyartifact.Issue
+}
+type StudyArtifactRefreshResult struct {
+	Revision  uint64
+	Artifacts []studyartifact.Record
+	Issues    []studyartifact.Issue
 }
 
 func planResult(plan filesystem.Plan) PlanResult {
