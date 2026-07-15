@@ -45,13 +45,13 @@ real vaults.
 
 ## Current Milestone
 
-`internal/transcription` now defines the core transcription domain without a
-backend: immutable generated jobs, strict lifecycle transitions, validated
-capabilities/models, final and partial transcripts, provenance, relative
-artifact names, safe errors, and race-safe fake/unavailable services. A minimal
-application service alias preserves `adapter → application → transcription`.
-There is no persistence, runtime mapping, orchestration, CLI, process execution,
-model download, or real transcription.
+`internal/transcription` now also defines a logical queue with separate
+scheduling status, deterministic in-memory storage, active-job uniqueness,
+bounded safe idempotency, atomic logical claims, explicit retry/requeue,
+context cancellation/timeout classification, sanitized inspection, and pure
+reconciliation. Application exposes only queue/service aliases. There is no
+persistence, worker, runtime mapping, orchestration, CLI, backend, or real
+transcription.
 
 ## Session Stash Warning
 
@@ -60,9 +60,9 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, define transcription queue, retry, and reconciliation contracts.
-Do not implement a backend, worker, CLI, persistence, or Whisper in that step.
-Review stash concepts without applying the stash; do not restore it.
+After review, integrate transcription runtime and application contracts without
+adding a real backend, worker, CLI, persistent queue, or Whisper. Review stash
+concepts without applying the stash; do not restore it.
 
 ## Real-Vault Safety Rule
 

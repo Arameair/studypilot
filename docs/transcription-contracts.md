@@ -137,5 +137,6 @@ There is no queue persistence, retry scheduling, reconciliation, runtime
 mapping, application orchestration, CLI, Whisper, faster-whisper, Python,
 real transcription, artifact persistence, worker, GUI/tray, or note generation.
 
-The next milestone is **Transcription queue, retry, and reconciliation
-contracts**.
+Logical queue, retry, and read-only reconciliation contracts are now defined in
+[transcription-queue.md](transcription-queue.md). The next milestone is
+**Transcription runtime and application integration**.

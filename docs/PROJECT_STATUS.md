@@ -2,9 +2,9 @@
 
 ## Current Milestone
 
-Core Transcription Domain Contracts follow the reviewed setup-output privacy
-correction. This milestone defines only UI-neutral transcription types and
-in-memory test services; it adds no transcription backend or application flow.
+Transcription Queue, Retry, and Reconciliation Contracts extend the core domain
+with deterministic logical scheduling and inspection. The queue remains
+in-memory and adds no worker, persistence, backend, or application flow.
 
 ## Completed Capabilities
 
@@ -37,6 +37,9 @@ in-memory test services; it adds no transcription backend or application flow.
 - Core transcription job identity and lifecycle, capability/model contracts,
   transcript and partial-result validation, provenance, artifact naming, safe
   errors, and deterministic fake/unavailable services
+- Logical queue status and ownership, duplicate/idempotency policy, explicit
+  retry and requeue decisions, safe context classification, and deterministic
+  read-only reconciliation
 
 ## Package Map
 
@@ -65,8 +68,8 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Transcription queue, retry, and reconciliation contracts. Do not restore the
-stash automatically and do not add a real backend in that contract milestone.
+Transcription runtime and application integration. Do not restore the stash or
+add a real backend, worker, CLI, or persistent queue automatically.
 
 ## Verification
 

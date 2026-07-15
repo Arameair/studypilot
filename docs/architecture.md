@@ -212,6 +212,13 @@ application, session, capture backend, or CLI packages. Queue persistence,
 retry, reconciliation, runtime mapping, orchestration, and real transcription
 remain future work. See [transcription-contracts.md](transcription-contracts.md).
 
+Queue scheduling remains inside the transcription domain. `QueueStatus` is
+separate from execution-oriented `JobStatus`; the in-memory implementation
+provides deterministic idempotency, logical claims, explicit retry transitions,
+and read-only reconciliation without persistence or workers. Application owns
+only a future composition alias. See
+[transcription-queue.md](transcription-queue.md).
+
 ## Session CLI adapter and tolerant inspection
 
 `cmd/studypilot session` is a thin adapter over the lifecycle application

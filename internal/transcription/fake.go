@@ -2,6 +2,7 @@ package transcription
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 )
@@ -44,6 +45,9 @@ func (s *FakeService) takeError(op string) error {
 }
 func contextError(ctx context.Context, op string) error {
 	if err := ctx.Err(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return newError(ErrorTimeout, op, true, "transcription operation timed out", err, "")
+		}
 		return newError(ErrorCancelled, op, true, "transcription operation cancelled", err, "")
 	}
 	return nil

@@ -8,20 +8,23 @@ import (
 type ErrorCode string
 
 const (
-	ErrorUnavailable       ErrorCode = "unavailable"
-	ErrorModelMissing      ErrorCode = "model_missing"
-	ErrorInvalidInput      ErrorCode = "invalid_input"
-	ErrorInputNotFinalized ErrorCode = "input_not_finalized"
-	ErrorDuplicateJob      ErrorCode = "duplicate_job"
-	ErrorInvalidState      ErrorCode = "invalid_state"
-	ErrorCancelled         ErrorCode = "cancelled"
-	ErrorTimeout           ErrorCode = "timeout"
-	ErrorPartialOutput     ErrorCode = "partial_output"
-	ErrorMalformedOutput   ErrorCode = "malformed_output"
-	ErrorArtifactConflict  ErrorCode = "artifact_conflict"
-	ErrorPermissionDenied  ErrorCode = "permission_denied"
-	ErrorUncertain         ErrorCode = "uncertain"
-	ErrorInternal          ErrorCode = "internal"
+	ErrorUnavailable         ErrorCode = "unavailable"
+	ErrorModelMissing        ErrorCode = "model_missing"
+	ErrorInvalidInput        ErrorCode = "invalid_input"
+	ErrorInputNotFinalized   ErrorCode = "input_not_finalized"
+	ErrorDuplicateJob        ErrorCode = "duplicate_job"
+	ErrorInvalidState        ErrorCode = "invalid_state"
+	ErrorCancelled           ErrorCode = "cancelled"
+	ErrorTimeout             ErrorCode = "timeout"
+	ErrorPartialOutput       ErrorCode = "partial_output"
+	ErrorMalformedOutput     ErrorCode = "malformed_output"
+	ErrorArtifactConflict    ErrorCode = "artifact_conflict"
+	ErrorPermissionDenied    ErrorCode = "permission_denied"
+	ErrorUncertain           ErrorCode = "uncertain"
+	ErrorInternal            ErrorCode = "internal"
+	ErrorQueueConflict       ErrorCode = "queue_conflict"
+	ErrorIdempotencyConflict ErrorCode = "idempotency_conflict"
+	ErrorRetryExhausted      ErrorCode = "retry_exhausted"
 )
 
 type Error struct {
@@ -55,7 +58,7 @@ func (e *Error) Validate() error {
 }
 func (c ErrorCode) valid() bool {
 	switch c {
-	case ErrorUnavailable, ErrorModelMissing, ErrorInvalidInput, ErrorInputNotFinalized, ErrorDuplicateJob, ErrorInvalidState, ErrorCancelled, ErrorTimeout, ErrorPartialOutput, ErrorMalformedOutput, ErrorArtifactConflict, ErrorPermissionDenied, ErrorUncertain, ErrorInternal:
+	case ErrorUnavailable, ErrorModelMissing, ErrorInvalidInput, ErrorInputNotFinalized, ErrorDuplicateJob, ErrorInvalidState, ErrorCancelled, ErrorTimeout, ErrorPartialOutput, ErrorMalformedOutput, ErrorArtifactConflict, ErrorPermissionDenied, ErrorUncertain, ErrorInternal, ErrorQueueConflict, ErrorIdempotencyConflict, ErrorRetryExhausted:
 		return true
 	}
 	return false

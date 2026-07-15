@@ -62,24 +62,29 @@ Immutable job identity, strict lifecycle transitions, backend/model capability
 types, transcript and partial models, provenance, artifact naming, safe errors,
 and deterministic fake/unavailable services. No real transcription.
 
-## Next Milestone — Transcription Queue, Retry, and Reconciliation Contracts (future)
-Define persistence-neutral queue, retry, and reconciliation behavior before any
-backend or worker implementation.
+## Phase 16 — Transcription Queue, Retry, and Reconciliation Contracts (complete)
+Deterministic in-memory scheduling, duplicate and idempotency policies, logical
+claims, explicit bounded retry decisions, context classification, safe
+inspection, and pure reconciliation. No persistence or workers.
 
-## Phase 16 — Asset Import and Routing (future)
+## Next Milestone — Transcription Runtime and Application Integration (future)
+Integrate the contracts with runtime/application state without adding a real
+transcription backend or persistent worker.
+
+## Phase 17 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 17 — Transcription Backend (future)
+## Phase 18 — Transcription Backend (future)
 Whisper and derived transcripts.
 
-## Phase 18 — Diagnostics (future)
+## Phase 19 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 19 — Desktop and Tray UI (future)
+## Phase 20 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 20 — Private Git Workflow (future)
+## Phase 21 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 21 — Publication Workflow (future)
+## Phase 22 — Publication Workflow (future)
 Reviewed derivatives with human approval.
