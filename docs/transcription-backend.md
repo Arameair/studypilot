@@ -41,7 +41,8 @@ The managed worker lives in `tools/transcription-worker`. It validates a
 single request of at most 64 KiB, accepts only the fixed `--protocol json-v1`
 argument, verifies that input is a regular finalized WAV, and writes exactly
 one result to stdout. It uses the pinned `faster-whisper==1.2.1` dependency and
-supports Python 3.10–3.12 for operational use.
+supports Python 3.10–3.13 for operational use. Python 3.13.5 is specifically
+validated; later 3.13 patch releases are not implied by that evidence.
 
 Model configuration is explicit through
 `STUDYPILOT_TRANSCRIPTION_MODEL`, `STUDYPILOT_TRANSCRIPTION_DEVICE`, and
@@ -132,16 +133,22 @@ WAV checks, serialization, safe errors, and signal behavior without importing
 faster-whisper. A normally skipped Go integration test uses the real process
 backend, a temporary session tree, an explicitly configured local model, and a
 purpose-created speech WAV. It validates identity and protocol output and
-compares source SHA-256 before and after transcription.
+compares source SHA-256 before and after transcription. A second opt-in test
+uses a bounded real-worker timeout, verifies no completed result or artifact
+directory, confirms source integrity, and returns only after the child process
+has been reaped.
 
-The current host has Python 3.13.5, no importable `faster_whisper` package, and
-no configured local model. Consequently, real faster-whisper execution remains
-incomplete; no success is claimed and no dependency or model was downloaded.
+Real validation passed with Python 3.13.5, `faster-whisper` 1.2.1,
+`ctranslate2` 4.8.1, `av` 18.0.0, CPU, `int8`, and an explicitly configured
+cached `base.en` validation model. The direct worker and Go process backend both
+returned a valid non-empty English transcript while the temporary source WAV's
+SHA-256, size, and modification time remained unchanged. No model was
+downloaded by StudyPilot.
 
 ## Current limitations and next milestone
 
-The worker is implemented, but real faster-whisper execution is not verified
-on this host. There is no transcription CLI, application execution
+The worker and real faster-whisper process boundary are validated on the exact
+local matrix above. There is no transcription CLI, application execution
 orchestration, background worker/daemon, persistent queue, automatic model
 download, GUI/tray, note generation, or publication.
 

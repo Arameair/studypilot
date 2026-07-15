@@ -6,9 +6,9 @@ Operational Faster-Whisper Worker and Backend Validation adds the managed,
 versioned Python worker, pinned dependency and isolated-environment guidance,
 strict stdin/stdout protocol implementation, explicit no-download model
 configuration, mocked worker tests, reproducible setup/validation scripts, and
-an opt-in real Go process integration test. Real faster-whisper execution is
-not verified because this host lacks a supported configured Python environment,
-the package, and a local model.
+an opt-in real Go process integration test. Real faster-whisper execution has
+passed with Python 3.13.5, faster-whisper 1.2.1, ctranslate2 4.8.1, av 18.0.0,
+CPU/int8, and an explicitly configured cached local validation model.
 
 ## Completed Capabilities
 
@@ -58,6 +58,8 @@ the package, and a local model.
   validation, safe signal/error handling, monotonic transcript serialization,
   pinned `faster-whisper==1.2.1`, explicit local-only model loading, mocked unit
   tests, and opt-in temporary-workspace Go integration validation
+- Real direct-worker and Go-process transcription validation on Python 3.13.5,
+  with a non-empty English transcript and unchanged source WAV identity
 
 ## Package Map
 
@@ -72,7 +74,7 @@ private transcript artifact durability without runtime or session authority.
 
 ## Known Limitations
 
-No real-vault recording, verified real faster-whisper execution, persistent
+No real-vault recording, persistent
 transcription queue/worker, transcription CLI, desktop UI, public
 migration application, rollback command, cross-process mutation lock, or
 cross-process recording ownership enforcement exists. Recording device discovery

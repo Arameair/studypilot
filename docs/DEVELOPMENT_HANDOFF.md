@@ -50,9 +50,11 @@ The local transcription backend now has a managed version-1 Python worker under
 `tools/transcription-worker`, a pinned dependency, explicit local-only model
 configuration, strict bounded JSON and finalized-WAV validation, safe signal
 handling, mocked Python unit tests, and an opt-in temporary-workspace Go process
-test. The worker writes no StudyPilot artifacts. Real faster-whisper is still
-unverified: this host has Python 3.13.5, no importable package, and no configured
-model, so no operational success is claimed.
+test. The worker writes no StudyPilot artifacts. Real direct-worker and Go
+process validation passed with Python 3.13.5, faster-whisper 1.2.1, ctranslate2
+4.8.1, av 18.0.0, CPU/int8, and an explicitly configured cached `base.en`
+model. Source audio remained unchanged and the private model path is not part of
+persisted or documented output.
 
 ## Session Stash Warning
 

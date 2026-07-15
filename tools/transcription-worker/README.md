@@ -8,18 +8,18 @@ text, credentials, commands, or private paths.
 
 ## Supported Python and dependency
 
-The supported operational range is Python 3.10–3.12. Worker unit tests are
-standard-library-only; this repository's current development host also ran them
-under Python 3.13.5, but real `faster-whisper` validation was not available
-there. The pinned dependency is `faster-whisper==1.2.1`; its published metadata
-requires Python 3.9 or newer. Use an isolated environment rather than system
-Python.
+The supported operational range is Python 3.10–3.13. Python 3.13.5 is the
+specifically validated 3.13 release; this does not guarantee every future 3.13
+patch. The validated local matrix is `faster-whisper==1.2.1`,
+`ctranslate2==4.8.1`, and `av==18.0.0`, using CPU, `int8`, and an explicitly
+configured cached `base.en` model. Use an isolated environment rather than
+system Python.
 
 ```bash
 scripts/setup-transcription-worker.sh
 ```
 
-The setup script creates `tools/transcription-worker/.venv` by default and
+The setup script creates `.venv-transcription` by default and
 installs only the pinned requirements. It never uses `sudo`, modifies system
 Python, downloads a model, starts a daemon, or accesses a vault.
 
@@ -78,15 +78,17 @@ scripts/validate-transcription-worker.sh
 ```
 
 Validation uses a temporary, purpose-created spoken phrase. Set
-`STUDYPILOT_TRANSCRIPTION_TEST_WAV` to an intentionally created validation WAV,
+`STUDYPILOT_TRANSCRIPTION_VALIDATION_WAV` to an intentionally created
+validation WAV (the legacy `STUDYPILOT_TRANSCRIPTION_TEST_WAV` is also
+accepted),
 or allow the test to use an already installed offline `espeak`. No course audio
 or real vault is permitted. The validation script does not print the model
 path or transcript contents and preserves its temporary directory on failure.
 
 ## Current limitation
 
-The worker and mocked Go/Python boundaries are implemented, but real local
-transcription is only operational after the user explicitly supplies the
-dependency environment and model. There is no CLI, application execution
-orchestration, daemon, persistent queue, GUI/tray, notes workflow, cloud API,
-publication integration, or automatic model download.
+The worker and Go/Python process boundary have been validated locally on Python
+3.13.5 with the matrix above. Operation still requires the user to explicitly
+supply the dependency environment and model. There is no CLI, application
+execution orchestration, daemon, persistent queue, GUI/tray, notes workflow,
+cloud API, publication integration, or automatic model download.

@@ -75,14 +75,17 @@ queue/runtime inspection. The queue remains in-memory and there is no backend.
 ## Phase 18 — Local Transcription Backend and Durable Artifact Persistence (complete)
 Synthetic execution, strict local worker protocol, conservative discovery,
 private transcript/provenance/job artifacts, atomic completion-marker ordering,
-and read-only recovery inspection. Real faster-whisper remains unverified.
+and read-only recovery inspection. Real faster-whisper validation was completed
+in the following operational validation milestone.
 
-## Operational Faster-Whisper Worker and Backend Validation (implementation complete; real validation incomplete)
+## Operational Faster-Whisper Worker and Backend Validation (complete)
 The managed version-1 Python worker, pinned dependency, strict protocol,
 explicit local-only model loading, mocked tests, setup/validation scripts, and
-opt-in Go process integration test are implemented. Real execution was not run:
-the current host has Python 3.13.5, no importable faster-whisper package, and no
-configured model. No package or model was downloaded automatically.
+opt-in Go process integration test are implemented. Direct and Go-process real
+transcription passed on Python 3.13.5 with faster-whisper 1.2.1, ctranslate2
+4.8.1, av 18.0.0, CPU/int8, and an explicit cached local `base.en` validation
+model. The source WAV remained unchanged and no model was downloaded by
+StudyPilot.
 
 ## Next Milestone — Transcription execution orchestration and CLI (future)
 Connect explicit application and CLI execution to the existing backend and
@@ -91,9 +94,9 @@ durable store without adding an automatic worker or model download.
 ## Phase 19 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 20 — Transcription Backend Validation (in progress)
-The worker and validation harness exist; one explicitly configured real local
-model run remains outstanding.
+## Phase 20 — Transcription Backend Validation (complete)
+The worker and real Go process boundary passed an explicitly configured local
+model run on temporary, purpose-created audio.
 
 ## Phase 21 — Diagnostics (future)
 Repair reports and operational checks.

@@ -7,5 +7,7 @@ coverage.out
 .idea/
 .vscode/
 /tools/transcription-worker/.venv/
+/.venv-transcription/
+/.local/transcription-models/
 **/__pycache__/
 *.py[cod]

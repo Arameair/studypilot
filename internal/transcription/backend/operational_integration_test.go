@@ -28,8 +28,8 @@ func TestOperationalFasterWhisperIntegration(t *testing.T) {
 	if versionErr != nil {
 		t.Fatal("configured Python could not report its version")
 	}
-	if err := exec.Command(python, "-c", "import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)").Run(); err != nil {
-		t.Fatal("operational validation requires Python 3.10 through 3.12")
+	if err := exec.Command(python, "-c", "import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 13) else 1)").Run(); err != nil {
+		t.Fatal("operational validation requires Python 3.10 through 3.13")
 	}
 	if !filepath.IsAbs(worker) || !filepath.IsAbs(modelPath) {
 		t.Fatal("worker and model configuration must be absolute local paths")
@@ -83,6 +83,53 @@ func TestOperationalFasterWhisperIntegration(t *testing.T) {
 	t.Logf("validation PASS python=%s schema=%d job_match=true duration_ms=%d language=%s source_sha256_before=%s source_sha256_after=%s worker_exit_code=0 device=%s compute_type=%s backend_version=%s model_path=redacted", strings.TrimSpace(string(versionOutput)), ProtocolSchemaVersion, result.Transcript.DurationMillis, result.Transcript.Language, before, after, device, computeType, result.Provenance.BackendVersion)
 }
 
+func TestOperationalFasterWhisperTimeoutReapsProcess(t *testing.T) {
+	if os.Getenv("STUDYPILOT_TRANSCRIPTION_INTEGRATION") != "1" {
+		t.Skip("set STUDYPILOT_TRANSCRIPTION_INTEGRATION=1 with explicit local worker configuration")
+	}
+	python := requiredIntegrationEnv(t, "STUDYPILOT_PYTHON")
+	worker := requiredIntegrationEnv(t, "STUDYPILOT_TRANSCRIPTION_WORKER")
+	modelPath := requiredIntegrationEnv(t, "STUDYPILOT_TRANSCRIPTION_MODEL")
+	root := t.TempDir()
+	sessionRoot := filepath.Join(root, "session")
+	segmentsDir := filepath.Join(sessionRoot, "Segments")
+	if err := os.MkdirAll(segmentsDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	wavPath := filepath.Join(segmentsDir, "001-audio.wav")
+	createValidationSpeech(t, wavPath)
+	before := fileDigest(t, wavPath)
+	jobID, err := transcription.NewJobID("66666666666666666666666666666666")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	job := transcription.Job{ID: jobID, SessionID: "session-operational-timeout", CaptureID: "capture-operational-timeout", SegmentID: "segment-operational-timeout", SegmentNumber: 1, InputRelativePath: "Segments/001-audio.wav", Backend: "faster-whisper", Model: "faster-whisper/local-configured", Language: "en", Status: transcription.JobQueued, QueuedAt: now, UpdatedAt: now}
+	artifacts := transcription.TranscriptArtifacts{JSONRelativePath: "Transcripts/001-transcript.json", TextRelativePath: "Transcripts/001-transcript.txt", JobRelativePath: "Transcripts/001-transcription-job.json", ProvenanceRelativePath: "Transcripts/001-provenance.json"}
+	runner := NewExecRunner()
+	discovery := LocalDiscovery{Runner: runner, PythonExecutable: python, ModelPaths: map[string]string{job.Model: modelPath}, ProbeTimeout: 5 * time.Second}
+	local, err := NewLocalBackend(LocalConfig{Runner: runner, Discovery: discovery, Python: python, Worker: worker, ModelVersion: "configured-local", Clock: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := TranscribeRequest{Job: job, SessionRoot: sessionRoot, Artifacts: artifacts, Backend: job.Backend, Model: job.Model, Language: "en", WordTimestamps: true, Timeout: 50 * time.Millisecond}
+	result, err := local.Transcribe(context.Background(), request)
+	if CodeOf(err) != ErrorTimeout {
+		t.Fatalf("expected timeout without completion, outcome=%s code=%s", result.Outcome, CodeOf(err))
+	}
+	if result.Outcome == OutcomeCompleted {
+		t.Fatal("timed-out worker returned a completed result")
+	}
+	after := fileDigest(t, wavPath)
+	if before != after {
+		t.Fatal("timed-out worker modified source WAV")
+	}
+	if _, err := os.Stat(filepath.Join(sessionRoot, "Transcripts")); !os.IsNotExist(err) {
+		t.Fatal("worker wrote transcript artifacts during timeout validation")
+	}
+	t.Logf("timeout PASS source_sha256_before=%s source_sha256_after=%s completed=false process_reaped=true", before, after)
+}
+
 func requiredIntegrationEnv(t *testing.T, name string) string {
 	t.Helper()
 	value := strings.TrimSpace(os.Getenv(name))
@@ -105,7 +152,11 @@ func integrationRoot(t *testing.T) (string, func()) {
 }
 func createValidationSpeech(t *testing.T, target string) {
 	t.Helper()
-	if source := strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_TEST_WAV")); source != "" {
+	source := strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_VALIDATION_WAV"))
+	if source == "" {
+		source = strings.TrimSpace(os.Getenv("STUDYPILOT_TRANSCRIPTION_TEST_WAV"))
+	}
+	if source != "" {
 		content, err := os.ReadFile(source)
 		if err != nil {
 			t.Fatal("configured validation WAV is unavailable")
