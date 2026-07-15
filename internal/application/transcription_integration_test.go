@@ -404,6 +404,49 @@ func TestTranscriptionRestartReportsRuntimeOnlyJob(t *testing.T) {
 	}
 }
 
+func TestTranscriptionRestartPreservesIntermediateStatesWithoutOwnership(t *testing.T) {
+	tests := []struct {
+		name, jobStatus, queueStatus, aggregate string
+		setup                                   func(*testing.T, transcriptionFixture) uint64
+	}{
+		{"queued", "queued", "queued", "queued", func(t *testing.T, f transcriptionFixture) uint64 {
+			return enqueueTranscription(t, f, f.session.Revision).Revision
+		}},
+		{"claimed", "queued", "claimed", "transcribing", func(t *testing.T, f transcriptionFixture) uint64 {
+			enqueued := enqueueTranscription(t, f, f.session.Revision)
+			claimed, err := f.service.ClaimTranscription(context.Background(), ClaimTranscriptionRequest{TranscriptionMutationRequest: mutationRequest(f, enqueued.Revision), ExpectedQueueStatus: transcription.QueueQueued})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return claimed.Revision
+		}},
+		{"running", "running", "claimed", "transcribing", setupStarted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := finalizedTranscriptionFixture(t, nil)
+			revision := tt.setup(t, f)
+			before := mustGetSession(t, f)
+			fresh, err := NewService(Dependencies{Now: func() time.Time { return f.now }, GenerateID: func(string) (string, error) { return "unused", nil }})
+			if err != nil {
+				t.Fatal(err)
+			}
+			inspection, err := fresh.InspectTranscription(context.Background(), InspectTranscriptionRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})
+			if err != nil || len(inspection.RuntimeStates) != 1 || len(inspection.QueueEntries) != 0 || !hasInspectionCode(inspection.Issues, "runtime_job_missing_from_queue") {
+				t.Fatalf("inspection=%+v err=%v", inspection, err)
+			}
+			state := inspection.RuntimeStates[0]
+			if state.JobStatus != tt.jobStatus || state.QueueStatus != tt.queueStatus || string(inspection.AggregateStatus) != tt.aggregate || inspection.Revision != revision {
+				t.Fatalf("state=%+v inspection=%+v", state, inspection)
+			}
+			after, err := fresh.GetSession(context.Background(), SessionReferenceRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})
+			if err != nil || after.Revision != before.Revision || after.Snapshot.SessionStatus != before.Snapshot.SessionStatus || after.Snapshot.CaptureStatus != before.Snapshot.CaptureStatus {
+				t.Fatalf("restart inspection mutated state: before=%+v after=%+v err=%v", before, after, err)
+			}
+		})
+	}
+}
+
 func hasInspectionCode(issues []TranscriptionInspectionIssue, code string) bool {
 	for _, issue := range issues {
 		if issue.Code == code {
