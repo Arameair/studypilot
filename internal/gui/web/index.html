@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>StudyPilot</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header><h1>StudyPilot</h1><p>Private local learning workspace</p></header>
+  <nav aria-label="Primary"><button id="dashboard-nav">Dashboard</button><span id="revision">Revision —</span></nav>
+  <main>
+    <section id="status" role="status" aria-live="polite">Loading StudyPilot…</section>
+    <section id="dashboard" aria-labelledby="dashboard-title">
+      <h2 id="dashboard-title">Dashboard</h2>
+      <div id="dashboard-summary"></div>
+      <h3>Courses and modules</h3><div id="courses"></div>
+      <h3>Unfinished sessions</h3><div id="unfinished-sessions"></div>
+      <h3>Pending transcription work</h3><div id="pending-transcripts"></div>
+      <h3>Transcription failures</h3><div id="failed-transcripts"></div>
+    </section>
+    <section id="module-view" hidden aria-labelledby="module-title">
+      <h2 id="module-title">Module</h2><div id="module-summary"></div><div id="module-sessions"></div>
+    </section>
+    <section id="session-view" hidden aria-labelledby="session-title">
+      <h2 id="session-title">Session</h2>
+      <div id="session-identity"></div><div id="session-status"></div>
+      <h3>Capture</h3><div id="capture-status"></div>
+      <div class="controls">
+        <button data-action="start-session">Start session</button>
+        <button data-action="start-capture">Start recording</button>
+        <button data-action="pause-capture">Pause</button>
+        <button data-action="resume-capture">Resume</button>
+        <button data-action="stop-capture">Stop recording</button>
+        <button data-action="complete-session">Complete session</button>
+        <button data-action="create-session-notes">Create session notes</button>
+        <button data-action="refresh-artifacts">Refresh artifacts</button>
+      </div>
+      <h3>Finalized segments and transcription</h3><div id="segments"></div>
+      <h3>Notes and assets</h3><div id="artifacts"></div>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

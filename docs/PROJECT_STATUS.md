@@ -2,11 +2,10 @@
 
 ## Current Milestone
 
-Study Artifact Organization connects completed private transcripts,
-user-authored module/session notes, and copied supporting assets through a
-single revisioned per-module index. Discovery and inspection are explicit,
-restart-safe, read-only operations; refresh rebuilds only the index from valid
-managed evidence.
+The Initial Local GUI Architecture exposes UI-neutral application read models
+through a versioned, loopback-only HTTP API and a dependency-free embedded
+browser shell. It preserves all existing session, capture, transcription, and
+study-artifact authorities while adding safe local navigation and controls.
 
 ## Completed Capabilities
 
@@ -71,6 +70,10 @@ managed evidence.
 - UI-neutral artifact application use cases and thin human/JSON CLI commands
   that exclude transcript bodies, note bodies, absolute roots, and external
   asset source paths
+- Path-free dashboard and session-workspace read models; versioned same-origin
+  HTTP endpoints; embedded dashboard/module/session views; revision-aware
+  session, capture, transcription, note, and artifact controls; bounded graceful
+  shutdown; and additive `studypilot gui` loopback composition
 
 ## Package Map
 
@@ -88,7 +91,8 @@ transcript creation or publication authority.
 ## Known Limitations
 
 No real-vault recording or usability test, persistent transcription queue,
-desktop UI, file watcher, artifact background worker, AI note generation,
+desktop wrapper, remote access, browser microphone capture, asset upload,
+Markdown editor, file watcher, artifact background worker, AI note generation,
 summarization, RAG, internal tutor, publication automation, public migration
 application, rollback command, cross-process artifact/mutation lock, or
 cross-process recording ownership enforcement exists.
@@ -100,10 +104,9 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Initial local GUI architecture and application API. The GUI must remain an
-adapter over `internal/application`; it must not bypass artifact, session,
-capture, transcription, filesystem, or privacy authorities. A real course
-usability test follows that architecture milestone.
+**Minimal session and capture GUI workflow**. Improve the actual local
+interaction flow while retaining the application boundary, then prepare a
+separately approved real course usability test.
 
 ## Verification
 

@@ -43,6 +43,7 @@ Usage:
   studypilot artifacts <subcommand> ...   (run 'studypilot artifacts help' for details)
   studypilot notes <subcommand> ...
   studypilot assets <subcommand> ...
+  studypilot gui [--address 127.0.0.1:8765] [--root PATH]
 `
 
 func main() {
@@ -88,6 +89,8 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return runTranscription(ctx, args[1:], stdout, stderr)
 	case "artifacts", "notes", "assets":
 		return runStudyArtifacts(ctx, args[0], args[1:], stdout, stderr)
+	case "gui":
+		return runGUI(ctx, args[1:], stdout, stderr)
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}

@@ -104,12 +104,22 @@ Tests and real validation use temporary workspaces and purpose-created speech.
 The source WAV SHA-256 is verified before and after. No real vault, course
 recording, public portfolio, cloud API, or publication workflow is accessed.
 
+## GUI request lifecycle
+
+The local GUI calls the same combined synchronous operation through
+`POST /api/v1/sessions/{course}/{module}/{session}/transcription/execute`. The
+HTTP request remains active until execution completes, times out, or is
+cancelled. Cancellation propagates through the application context to the
+existing bounded worker-reaping behavior. This adds no persistent queue,
+polling loop, background worker, or alternate runtime authority.
+
 ## Current exclusions and next milestone
 
-There is no persistent queue, background worker, daemon, GUI/tray, automatic
-model download, notes workflow, summarization, or publication integration.
+There is no persistent queue, background worker, daemon, desktop wrapper,
+automatic model download, transcript-body GUI, summarization, or publication
+integration.
 
 The complete synthetic and real operator path is validated in
 [transcription-workflow-validation.md](transcription-workflow-validation.md).
-The next milestone is **Study artifact organization: transcripts, notes, and
-assets**.
+Study artifact organization and the initial local GUI architecture are now
+complete. The next milestone is **Minimal session and capture GUI workflow**.

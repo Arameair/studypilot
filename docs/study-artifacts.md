@@ -112,17 +112,21 @@ new reviewed derivative with explicit human approval.
 
 ## Current exclusions
 
-There is no GUI or tray, file watcher, background worker, cloud storage, AI note
-generation, summarization, quiz generation, embeddings, vector search, RAG,
-internal tutor, publication automation, or real-vault test.
+The local GUI exposes metadata-only artifact list, inspection, refresh, and note
+template creation through the application service. There is still no asset
+upload, Markdown editor, transcript/note body display, tray, file watcher,
+background worker, cloud storage, AI note generation, summarization, quiz
+generation, embeddings, vector search, RAG, internal tutor, publication
+automation, or real-vault test.
 
 ## Next milestone
 
-The next milestone is **Initial local GUI architecture and application API**.
+The next milestone is **Minimal session and capture GUI workflow**.
 The intended sequence is:
 
 ```text
 study artifact organization
 → initial local GUI
+→ minimal session and capture GUI workflow
 → real course usability test
 ```

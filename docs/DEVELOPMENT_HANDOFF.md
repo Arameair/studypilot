@@ -26,7 +26,8 @@ UI-neutral capture behavior contracts, `capture/backend` the real recording
 backends, `application` UI-neutral lifecycle orchestration plus the
 capture-service contract, `transcription/backend` local execution plus private
 transcript durability, `studyartifact` the private transcript/note/asset
-inventory, and `cmd/studypilot` the thin CLI adapter.
+inventory, `httpapi` the loopback transport adapter, `gui` the embedded static
+shell, and `cmd/studypilot` the thin CLI adapter and composition root.
 
 ## Privacy Boundaries
 
@@ -47,11 +48,10 @@ real vaults.
 
 ## Current Milestone
 
-Study artifact organization is implemented. Completed transcript evidence is
-indexed without transcript text; module/session notes are empty user-editable
-templates; supporting assets are safely copied; and one module-local index has
-expected-revision mutation, explicit refresh, and read-only reconciliation.
-All validation uses temporary workspaces and synthetic content.
+The initial local GUI architecture is implemented. Path-free application read
+models feed a versioned loopback-only API and an embedded dashboard/module/
+session shell. Mutations retain existing revision and authority checks, and all
+validation uses temporary workspaces and synthetic content.
 
 ## Session Stash Warning
 
@@ -60,11 +60,12 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-Define **Initial local GUI architecture and application API**. Keep the GUI a
-thin adapter over `internal/application`, then conduct a separately approved
-real course usability test. Do not add AI note generation, summarization, RAG,
-an internal tutor, publication automation, file watching, background artifact
-workers, or real-vault tests, and do not apply the stash.
+Implement **Minimal session and capture GUI workflow**. Improve the actual
+interaction flow and prepare a separately approved real course usability test.
+Keep the GUI thin; do not add a desktop wrapper, remote access, browser
+microphone, asset upload, Markdown editor, persistent/background workers, AI
+features, publication automation, or real-vault tests, and do not apply the
+stash.
 
 ## Real-Vault Safety Rule
 

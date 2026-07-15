@@ -106,11 +106,18 @@ explicit discovery, refresh, and reconciliation; application use cases; and
 thin CLI commands are implemented without content generation or publication.
 
 The intended sequence is artifact organization, then the initial local GUI,
-then a real course usability test.
+then a minimal session/capture interaction milestone, then a separately
+approved real course usability test.
 
-## Next Milestone — Initial local GUI architecture and application API (future)
-Define a local desktop adapter and GUI-facing application API without moving
-domain, persistence, privacy, or workflow authority into the UI.
+## Initial Local GUI Architecture and Application API (complete)
+Loopback-only versioned HTTP endpoints, UI-neutral dashboard and session
+workspace models, embedded dependency-free frontend assets, revision-aware
+controls, safe errors, same-origin controls, and bounded shutdown are complete.
+The GUI remains an adapter over `internal/application`.
+
+## Next Milestone — Minimal session and capture GUI workflow (future)
+Improve the actual interaction flow and prepare for a separately approved real
+course usability test without moving authority into the UI.
 
 ## Phase 19 — Asset Import and Routing (complete)
 Safe bounded private module/session asset registration is part of study artifact

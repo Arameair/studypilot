@@ -1,5 +1,13 @@
 # Architecture
 
+The initial local GUI follows `embedded browser frontend → loopback-only
+internal/httpapi → internal/application → existing domain and persistence
+packages`. HTTP handlers own transport validation and path-free DTO mapping but
+hold no repository, filesystem, capture, transcription, artifact, or workflow
+authority. Static assets are embedded in the binary with no frontend runtime or
+remote dependency. See [gui-architecture.md](gui-architecture.md) and
+[http-api.md](http-api.md).
+
 Transcription follows `CLI/future GUI → internal/application →
 internal/transcription → queue/backend`. `internal/runtime` owns its safe
 persisted summary and `internal/session` owns atomic revisioned persistence.
