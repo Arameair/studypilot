@@ -99,6 +99,7 @@ func applyJob(snapshot studyruntime.Snapshot, job Job, partial *PartialUpdate, o
 		state.TranscriptJSONRelativePath = job.Artifacts.JSONRelativePath
 		state.TranscriptTextRelativePath = job.Artifacts.TextRelativePath
 		state.JobMetadataRelativePath = job.Artifacts.JobRelativePath
+		state.ProvenanceRelativePath = job.Artifacts.ProvenanceRelativePath
 	case JobFailed:
 		state.QueueStatus = string(QueueTerminal)
 	case JobCancelled:
@@ -122,6 +123,7 @@ func runtimeState(entry QueueEntry) studyruntime.SegmentTranscriptionState {
 		state.TranscriptJSONRelativePath = j.Artifacts.JSONRelativePath
 		state.TranscriptTextRelativePath = j.Artifacts.TextRelativePath
 		state.JobMetadataRelativePath = j.Artifacts.JobRelativePath
+		state.ProvenanceRelativePath = j.Artifacts.ProvenanceRelativePath
 	}
 	return state
 }

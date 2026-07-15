@@ -72,24 +72,29 @@ Safe per-segment runtime state, derived aggregate status, pure mappings,
 revision-controlled application use cases, uncertainty reporting, and
 queue/runtime inspection. The queue remains in-memory and there is no backend.
 
-## Next Milestone — Local transcription backend and durable artifact persistence (future)
-Add a local backend and durable private artifacts without a worker or automatic
-publication.
+## Phase 18 — Local Transcription Backend and Durable Artifact Persistence (complete)
+Synthetic execution, strict local worker protocol, conservative discovery,
+private transcript/provenance/job artifacts, atomic completion-marker ordering,
+and read-only recovery inspection. Real faster-whisper remains unverified.
 
-## Phase 18 — Asset Import and Routing (future)
+## Next Milestone — Transcription CLI and execution orchestration (future)
+Connect explicit CLI/application execution to the backend and durable store
+without adding an automatic worker or model download.
+
+## Phase 19 — Asset Import and Routing (future)
 Safe private attachment routing.
 
-## Phase 19 — Transcription Backend (future)
+## Phase 20 — Transcription Backend Validation (future)
 Whisper and derived transcripts.
 
-## Phase 20 — Diagnostics (future)
+## Phase 21 — Diagnostics (future)
 Repair reports and operational checks.
 
-## Phase 21 — Desktop and Tray UI (future)
+## Phase 22 — Desktop and Tray UI (future)
 Adapters over application services.
 
-## Phase 22 — Private Git Workflow (future)
+## Phase 23 — Private Git Workflow (future)
 Privacy-preserving repository workflow.
 
-## Phase 23 — Publication Workflow (future)
+## Phase 24 — Publication Workflow (future)
 Reviewed derivatives with human approval.

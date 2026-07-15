@@ -24,7 +24,8 @@ dumping-ground packages.
 `session` operational persistence plus the tolerant read-only scan, `capture`
 UI-neutral capture behavior contracts, `capture/backend` the real recording
 backends, `application` UI-neutral lifecycle orchestration plus the
-capture-service contract, and `cmd/studypilot` the thin CLI adapter.
+capture-service contract, `transcription/backend` local execution plus private
+artifact durability, and `cmd/studypilot` the thin CLI adapter.
 
 ## Privacy Boundaries
 
@@ -45,12 +46,11 @@ real vaults.
 
 ## Current Milestone
 
-Runtime now persists safe per-segment current transcription jobs and derives the
-aggregate. Pure mappings and application use cases coordinate the in-memory
-queue, fake/service contract, and revisioned session repository. Inspection
-reports queue/runtime contradictions and restart loss without repair. There is
-no persistent queue, worker, CLI, backend, artifact persistence, or real
-transcription.
+The local transcription backend boundary now includes deterministic synthetic
+execution, strict JSON protocol decoding, conservative component discovery,
+bounded shell-free process execution, session-scoped artifact authority,
+durable JSON/text/provenance/job files, and read-only recovery inspection. It
+is not yet connected to CLI execution and real faster-whisper is unverified.
 
 ## Session Stash Warning
 
@@ -59,9 +59,10 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-After review, implement the local transcription backend and durable artifact
-persistence without adding a worker, CLI, GUI, automatic publication, or
-real-vault execution. Review stash concepts without applying the stash.
+After review, add explicit transcription CLI and execution orchestration over
+the application/backend seams without adding a background worker, automatic
+model download, GUI, publication, or real-vault execution. Do not apply the
+stash.
 
 ## Real-Vault Safety Rule
 

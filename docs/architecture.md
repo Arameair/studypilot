@@ -6,6 +6,11 @@ persisted summary and `internal/session` owns atomic revisioned persistence.
 The current queue and fake service are in-process only; adapters do not invoke
 them directly.
 
+`internal/transcription/backend` now defines the local execution, strict worker
+protocol, conservative discovery, and private artifact authority. It remains
+below the transcription domain and cannot import application/session or mutate
+runtime. See [transcription-backend.md](transcription-backend.md).
+
 StudyPilot is designed around three repositories that remain operationally and
 historically separate.
 

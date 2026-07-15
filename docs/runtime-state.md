@@ -15,6 +15,10 @@ segment. Transcript content and raw errors are excluded; the session-wide
 status is derived from independent summaries. See
 [transcription-runtime.md](transcription-runtime.md).
 
+Completed summaries may additionally reference a relative provenance artifact.
+The backend installs durable artifacts independently; runtime coordination
+remains an application responsibility and is never inferred from files alone.
+
 ## Independent dimensions
 
 | Dimension | States |

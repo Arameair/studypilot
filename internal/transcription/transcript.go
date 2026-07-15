@@ -1,23 +1,26 @@
 package transcription
 
 type TranscriptSegment struct {
-	Index                  int
-	StartMillis, EndMillis int64
-	Text                   string
-	Confidence             *float64
+	Index       int      `json:"index"`
+	StartMillis int64    `json:"start_millis"`
+	EndMillis   int64    `json:"end_millis"`
+	Text        string   `json:"text"`
+	Confidence  *float64 `json:"confidence,omitempty"`
 }
 type Word struct {
-	Index                  int
-	StartMillis, EndMillis int64
-	Text                   string
-	Confidence             *float64
+	Index       int      `json:"index"`
+	StartMillis int64    `json:"start_millis"`
+	EndMillis   int64    `json:"end_millis"`
+	Text        string   `json:"text"`
+	Confidence  *float64 `json:"confidence,omitempty"`
 }
 type Transcript struct {
-	Text, Language string
-	DurationMillis int64
-	Segments       []TranscriptSegment
-	Words          []Word
-	Partial        bool
+	Text           string              `json:"text"`
+	Language       string              `json:"language"`
+	DurationMillis int64               `json:"duration_millis"`
+	Segments       []TranscriptSegment `json:"segments"`
+	Words          []Word              `json:"words"`
+	Partial        bool                `json:"partial"`
 }
 type PartialUpdate struct {
 	JobID                         JobID

@@ -2,10 +2,11 @@
 
 ## Current Milestone
 
-Transcription Runtime and Application Integration persists safe per-segment
-current-job summaries, derives aggregate status, provides pure mappings, and
-adds revision-controlled application orchestration and read-only mismatch
-inspection. The queue remains in-memory and no real backend exists.
+Local Transcription Backend and Durable Artifact Persistence adds a deterministic
+synthetic backend, a fixed local Python/faster-whisper protocol boundary,
+conservative discovery, private artifact authority, atomic partial-to-final
+storage, and read-only recovery inspection. Real faster-whisper execution is
+not verified.
 
 ## Completed Capabilities
 
@@ -45,6 +46,12 @@ inspection. The queue remains in-memory and no real backend exists.
   pure lifecycle mappings, revision-controlled enqueue/claim/start/partial/
   complete/fail/cancel/retry/requeue use cases, explicit uncertain persistence,
   and restart-safe queue/runtime diagnostics
+- Local backend interface, deterministic synthetic results, strict versioned
+  worker protocol, bounded shell-free process runner, conservative Python/
+  worker/package/model discovery, and safe failure classification
+- Private session-scoped transcript JSON/text, provenance, and job metadata;
+  SHA-256 source binding; partial-to-final durability with metadata installed
+  last; linked-path rejection; and deterministic recovery inspection
 
 ## Package Map
 
@@ -54,12 +61,13 @@ and `capture/backend` the real recording backends; `course` owns course/module
 identity; `session` owns session identity, operational persistence, and the
 tolerant read-only scan; `workspace` owns vault contracts; `filesystem` owns
 creation and mutation; `runtime` owns status contracts; `schema` owns documents;
-`migration` owns upgrades.
+`migration` owns upgrades; `transcription/backend` owns local execution and
+private transcript artifact durability without runtime or session authority.
 
 ## Known Limitations
 
-No real-vault recording, real transcription backend, durable transcript
-artifacts, persistent transcription queue/worker, transcription CLI, desktop UI, public
+No real-vault recording, verified real faster-whisper execution, persistent
+transcription queue/worker, transcription CLI, desktop UI, public
 migration application, rollback command, cross-process mutation lock, or
 cross-process recording ownership enforcement exists. Recording device discovery
 is conservative: a Linux recorder executable is not treated as a confirmed
@@ -74,9 +82,9 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-Local transcription backend and durable artifact persistence. Do not restore
-the stash or add Whisper, a worker, CLI, GUI, or real-vault execution
-automatically.
+Transcription CLI and execution orchestration. Do not restore the stash or add
+a background worker, automatic model download, GUI, publication, or real-vault
+execution automatically.
 
 ## Verification
 

@@ -66,9 +66,10 @@ runtime state, repair, or resume work.
 
 ## Current exclusions and next milestone
 
-There is no real backend, Whisper, faster-whisper, Python execution, artifact
-persistence, persistent queue, worker, transcription CLI, GUI/tray, note
-generation, model download, or real-vault access.
+The local backend/process boundary and durable private artifact store are now
+defined in [transcription-backend.md](transcription-backend.md). Real
+faster-whisper execution remains unverified. There is no persistent queue,
+background worker, transcription CLI, GUI/tray, note generation, model
+download, publication, or real-vault access.
 
-The next milestone is **Local transcription backend and durable artifact
-persistence**.
+The next milestone is **Transcription CLI and execution orchestration**.

@@ -44,6 +44,7 @@ type SegmentTranscriptionState struct {
 	TranscriptJSONRelativePath string     `json:"transcript_json_relative_path,omitempty"`
 	TranscriptTextRelativePath string     `json:"transcript_text_relative_path,omitempty"`
 	JobMetadataRelativePath    string     `json:"job_metadata_relative_path,omitempty"`
+	ProvenanceRelativePath     string     `json:"provenance_relative_path,omitempty"`
 	PartialSequence            int64      `json:"partial_sequence,omitempty"`
 	StableThroughMillis        int64      `json:"stable_through_millis,omitempty"`
 	LastErrorCode              string     `json:"last_error_code,omitempty"`
@@ -211,7 +212,7 @@ func (s Snapshot) validateTranscriptions() error {
 		if state.JobID == "" || state.Backend == "" || state.Model == "" || state.Attempt < 1 || state.MaxAttempts < 1 || state.Attempt > state.MaxAttempts || !validJobStatus(state.JobStatus) || !validQueueStatus(state.QueueStatus) {
 			return invalid("transcription state fields are invalid")
 		}
-		for _, p := range []string{state.InputRelativePath, state.TranscriptJSONRelativePath, state.TranscriptTextRelativePath, state.JobMetadataRelativePath} {
+		for _, p := range []string{state.InputRelativePath, state.TranscriptJSONRelativePath, state.TranscriptTextRelativePath, state.JobMetadataRelativePath, state.ProvenanceRelativePath} {
 			if p != "" && !safeRelativePath(p) {
 				return invalid("transcription state contains unsafe path")
 			}

@@ -23,7 +23,7 @@ func baseTranscript(partial bool) Transcript {
 	return Transcript{Text: "synthetic transcript", Language: "en", DurationMillis: 1000, Partial: partial, Segments: []TranscriptSegment{{Index: 0, StartMillis: 0, EndMillis: 1000, Text: "synthetic", Confidence: ptrFloat(.9)}}, Words: []Word{{Index: 0, StartMillis: 0, EndMillis: 500, Text: "synthetic", Confidence: ptrFloat(.8)}}}
 }
 func baseArtifacts() TranscriptArtifacts {
-	return TranscriptArtifacts{JSONRelativePath: "Transcripts/001-transcript.json", TextRelativePath: "Transcripts/001-transcript.txt", JobRelativePath: "Transcripts/001-transcription-job.json"}
+	return TranscriptArtifacts{JSONRelativePath: "Transcripts/001-transcript.json", TextRelativePath: "Transcripts/001-transcript.txt", JobRelativePath: "Transcripts/001-transcription-job.json", ProvenanceRelativePath: "Transcripts/001-provenance.json"}
 }
 func baseProvenance(t *testing.T) Provenance {
 	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
@@ -267,7 +267,7 @@ func TestProvenanceAndArtifacts(t *testing.T) {
 	if err := artifacts.Validate(1, true); err != nil {
 		t.Fatal(err)
 	}
-	for name, mutate := range map[string]func(*TranscriptArtifacts){"traversal": func(a *TranscriptArtifacts) { a.JSONRelativePath = "Transcripts/../private.json" }, "absolute": func(a *TranscriptArtifacts) { a.TextRelativePath = "/private/transcript.txt" }, "wrong root": func(a *TranscriptArtifacts) { a.JobRelativePath = "Other/001-transcription-job.json" }, "wrong number": func(a *TranscriptArtifacts) { a.JSONRelativePath = "Transcripts/002-transcript.json" }, "partial": func(a *TranscriptArtifacts) { a.TextRelativePath = "Transcripts/001-transcript.txt.partial" }} {
+	for name, mutate := range map[string]func(*TranscriptArtifacts){"traversal": func(a *TranscriptArtifacts) { a.JSONRelativePath = "Transcripts/../private.json" }, "absolute": func(a *TranscriptArtifacts) { a.TextRelativePath = "/private/transcript.txt" }, "wrong root": func(a *TranscriptArtifacts) { a.JobRelativePath = "Other/001-transcription-job.json" }, "wrong number": func(a *TranscriptArtifacts) { a.JSONRelativePath = "Transcripts/002-transcript.json" }, "partial": func(a *TranscriptArtifacts) { a.TextRelativePath = "Transcripts/001-transcript.txt.partial" }, "provenance": func(a *TranscriptArtifacts) { a.ProvenanceRelativePath = "Transcripts/002-provenance.json" }} {
 		t.Run(name, func(t *testing.T) {
 			a := baseArtifacts()
 			mutate(&a)

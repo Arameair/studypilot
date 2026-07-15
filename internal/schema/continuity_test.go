@@ -21,6 +21,7 @@ func TestProjectContinuityDocuments(t *testing.T) {
 		"transcription-contracts.md": {"# Core Transcription Domain Contracts", "## Architecture", "## Status lifecycle", "## Provenance", "## Current exclusions and next milestone"},
 		"transcription-queue.md":     {"# Transcription Queue, Retry, and Reconciliation Contracts", "## Queue architecture", "## Queue status and job status", "## Retry policy and backoff", "## Inspection and reconciliation", "## Current exclusions and next milestone"},
 		"transcription-runtime.md":   {"# Transcription Runtime and Application Integration", "## Runtime schema", "## Per-segment state and aggregate policy", "## Pure mapping behavior", "## Application orchestration", "## Revision control and persistence uncertainty", "## Queue/runtime mismatch and inspection", "## Restart limitation", "## Current exclusions and next milestone"},
+		"transcription-backend.md":   {"# Local Transcription Backend and Durable Artifact Persistence", "## Backend architecture", "## Synthetic backend", "## Local process boundary", "## Python/faster-whisper protocol", "## Capability discovery", "## Artifact authority and layout", "## Durability order", "## Recovery inspection", "## Privacy boundary", "## Current limitations and next milestone"},
 	}
 	for name, headings := range required {
 		content, err := os.ReadFile(filepath.Join("..", "..", "docs", name))

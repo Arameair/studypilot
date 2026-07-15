@@ -8,13 +8,22 @@ import (
 )
 
 type Provenance struct {
-	JobID                                        JobID
-	SessionID, CaptureID, SegmentID              string
-	InputRelativePath, InputSHA256               string
-	Backend, BackendVersion, Model, ModelVersion string
-	RequestedLanguage, DetectedLanguage          string
-	RequestedAt, StartedAt, CompletedAt          time.Time
-	Parameters                                   map[string]string
+	JobID             JobID             `json:"job_id"`
+	SessionID         string            `json:"session_id"`
+	CaptureID         string            `json:"capture_id"`
+	SegmentID         string            `json:"segment_id"`
+	InputRelativePath string            `json:"input_relative_path"`
+	InputSHA256       string            `json:"input_sha256"`
+	Backend           string            `json:"backend"`
+	BackendVersion    string            `json:"backend_version"`
+	Model             string            `json:"model"`
+	ModelVersion      string            `json:"model_version"`
+	RequestedLanguage string            `json:"requested_language,omitempty"`
+	DetectedLanguage  string            `json:"detected_language,omitempty"`
+	RequestedAt       time.Time         `json:"requested_at"`
+	StartedAt         time.Time         `json:"started_at"`
+	CompletedAt       time.Time         `json:"completed_at"`
+	Parameters        map[string]string `json:"parameters,omitempty"`
 }
 
 func (p Provenance) Clone() Provenance {

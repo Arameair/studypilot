@@ -106,10 +106,10 @@ the race detector. There is no cross-process guarantee.
 ## Current exclusions and next milestone
 
 There is no persistent queue, database, background worker, transcription CLI,
-Whisper, faster-whisper, Python,
-real transcription, artifact persistence, GUI/tray, note generation, or
+verified real faster-whisper execution, GUI/tray, note generation, or
 real-vault access.
 
 Runtime and application integration is described in
-[transcription-runtime.md](transcription-runtime.md). The next milestone is
-**Local transcription backend and durable artifact persistence**.
+[transcription-runtime.md](transcription-runtime.md), and local execution/artifact
+storage in [transcription-backend.md](transcription-backend.md). The next
+milestone is **Transcription CLI and execution orchestration**.
