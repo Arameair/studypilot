@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -197,13 +198,8 @@ func (r *recorder) StartSegment(ctx context.Context, req StartSegmentRequest) (A
 	if err := createOwnership(authority, currentOwnership(string(req.CaptureID), segmentID, req.Number, startedAt)); err != nil {
 		return ActiveSegment{}, err
 	}
-	handle, beginErr := r.engine.begin(ctx, partialPath, format)
-	if beginErr != nil {
-		return ActiveSegment{}, r.unwindFailedStart(authority, partialPath, format, beginErr)
-	}
 	active := &activeRecording{
 		authority:    authority,
-		handle:       handle,
 		partialPath:  partialPath,
 		finalPath:    finalPath,
 		manifestPath: manifestPath,
@@ -220,28 +216,68 @@ func (r *recorder) StartSegment(ctx context.Context, req StartSegmentRequest) (A
 			Backend:      r.engine.name(),
 		},
 	}
+	handle, beginErr := r.engine.begin(ctx, partialPath, format)
+	if beginErr != nil {
+		return ActiveSegment{}, r.unwindFailedStart(active, beginErr)
+	}
+	active.handle = handle
 	r.mu.Lock()
 	r.active[segmentID] = active
 	r.mu.Unlock()
 	return active.segment.clone(), nil
 }
 
-// unwindFailedStart cleans up after a failed engine begin. If the partial file
-// holds real data the segment is reported as partial and the file is kept for
-// inspection; otherwise every trace is removed so the number is not consumed.
-// Ownership is always released because no recording is running.
-func (r *recorder) unwindFailedStart(authority SegmentAuthority, partialPath string, format AudioFormat, cause error) error {
-	dataBytes := int64(0)
-	if info, err := os.Stat(partialPath); err == nil {
-		dataBytes = info.Size() - wavHeaderSize
+// unwindFailedStart distinguishes a resolved process failure from uncertain
+// liveness. Resolved failures release ownership and remove output that contains
+// no valid audio frames. Meaningful WAV evidence is retained with explicit
+// partial metadata. Uncertain failures retain ownership for recovery.
+func (r *recorder) unwindFailedStart(record *activeRecording, cause error) error {
+	dataBytes, meaningful := meaningfulPartialWAV(record.partialPath, record.format)
+	if !processStartResolved(cause) {
+		if meaningful {
+			_ = r.writeFailedStartManifest(record, dataBytes)
+		}
+		if CodeOf(cause) == ErrorTimeout || CodeOf(cause) == ErrorCancelled || CodeOf(cause) == ErrorDurabilityUncertain {
+			return cause
+		}
+		return newError(ErrorDurabilityUncertain, OpNameStart, "recorder startup liveness is uncertain", cause)
 	}
-	_ = removeOwnership(authority.SegmentsDir())
-	if dataBytes > 0 {
-		// Keep the partial file as evidence; report a partial outcome.
-		return newError(ErrorPartialOutput, OpNameStart, "recording failed after partial data was written", cause)
+
+	if meaningful {
+		manifestErr := r.writeFailedStartManifest(record, dataBytes)
+		ownershipErr := removeOwnership(record.authority.SegmentsDir())
+		if manifestErr != nil || ownershipErr != nil {
+			return newError(ErrorDurabilityUncertain, OpNameStart, "failed recording evidence could not be durably resolved", errors.Join(manifestErr, ownershipErr))
+		}
+		return newError(ErrorPartialOutput, OpNameStart, "recording failed after partial audio was written", cause)
 	}
-	_ = os.Remove(partialPath)
+
+	removeErr := os.Remove(record.partialPath)
+	if removeErr != nil && !os.IsNotExist(removeErr) {
+		return newError(ErrorDurabilityUncertain, OpNameStart, "empty failed recording output could not be removed", removeErr)
+	}
+	if err := removeOwnership(record.authority.SegmentsDir()); err != nil {
+		return newError(ErrorDurabilityUncertain, OpNameStart, "failed recording ownership could not be released", err)
+	}
 	return cause
+}
+
+func meaningfulPartialWAV(path string, format AudioFormat) (int64, bool) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+		return 0, false
+	}
+	wav, err := ParseWAVFile(path)
+	if err != nil || wav.Format != format || wav.DataLen <= 0 {
+		return 0, false
+	}
+	return wav.DataLen, true
+}
+
+func (r *recorder) writeFailedStartManifest(record *activeRecording, dataBytes int64) error {
+	manifest := record.manifest(record.segment, dataBytes, r.clock().UTC(), studyruntime.SegmentStatusFailed, true)
+	manifest.AudioFile = partialName(record.segment.Number)
+	return writeManifestAtomic(record.authority.SegmentsDir(), record.manifestPath, manifest)
 }
 
 func (r *recorder) takeActive(active ActiveSegment) (*activeRecording, error) {

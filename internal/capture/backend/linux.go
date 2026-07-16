@@ -120,11 +120,12 @@ func (e *unavailableEngine) begin(context.Context, string, AudioFormat) (engineH
 
 // processEngine records via an external recorder process writing a complete WAV.
 type processEngine struct {
-	runner      ProcessRunner
-	label       string
-	executable  string
-	buildArgs   func(outputPath string, format AudioFormat) []string
-	stopTimeout time.Duration
+	runner       ProcessRunner
+	label        string
+	executable   string
+	buildArgs    func(outputPath string, format AudioFormat) []string
+	stopTimeout  time.Duration
+	startupGrace time.Duration
 }
 
 func (e *processEngine) name() string { return e.label }
@@ -134,7 +135,53 @@ func (e *processEngine) begin(ctx context.Context, partialPath string, format Au
 	if err != nil {
 		return nil, err
 	}
+	if err := awaitProcessStartup(ctx, handle, e.startupGrace); err != nil {
+		return nil, err
+	}
 	return &processEngineHandle{handle: handle, partialPath: partialPath}, nil
+}
+
+func awaitProcessStartup(ctx context.Context, handle ProcessHandle, grace time.Duration) error {
+	checkExited := func() error {
+		exited, exitErr, stderr := handle.Exited()
+		if !exited {
+			return nil
+		}
+		return newProcessStartFailure(
+			newError(ErrorProcessExited, OpNameStart, "configured local capture process exited during startup", exitErr),
+			true,
+			stderr,
+		)
+	}
+	if err := checkExited(); err != nil || grace <= 0 {
+		return err
+	}
+
+	pollInterval := 10 * time.Millisecond
+	if grace < pollInterval {
+		pollInterval = grace
+	}
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	timer := time.NewTimer(grace)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := checkExited(); err != nil {
+				return err
+			}
+		case <-timer.C:
+			return checkExited()
+		case <-ctx.Done():
+			killErr := handle.Kill()
+			return newProcessStartFailure(
+				newError(ErrorCancelled, OpNameStart, "recording start was cancelled", ctx.Err()),
+				killErr == nil,
+				"",
+			)
+		}
+	}
 }
 
 type processEngineHandle struct {

@@ -425,7 +425,12 @@ func translateError(op string, err error) error {
 		return capture.NewError(capture.ErrorInvalidRequest, op, false, capture.OutcomeNotStarted, "invalid capture request", err)
 	case ErrorPartialOutput:
 		return capture.NewError(capture.ErrorStartFailed, op, true, capture.OutcomeSegmentPartial, "recording produced only partial output", err)
-	case ErrorProcessExited, ErrorFinalizationFailed, ErrorManifestFailed, ErrorDurabilityUncertain:
+	case ErrorProcessExited:
+		if op == capture.OpStart || op == capture.OpResume {
+			return capture.NewError(capture.ErrorStartFailed, op, true, capture.OutcomeNotStarted, "The configured local capture process exited during startup.", err)
+		}
+		return capture.NewError(capture.ErrorInternal, op, false, capture.OutcomeUncertain, "recording could not be finalized", err)
+	case ErrorFinalizationFailed, ErrorManifestFailed, ErrorDurabilityUncertain:
 		return capture.NewError(capture.ErrorInternal, op, false, capture.OutcomeUncertain, "recording could not be finalized", err)
 	case ErrorCancelled:
 		return capture.NewError(capture.ErrorCancelled, op, false, capture.OutcomeUncertain, "capture operation cancelled", err)

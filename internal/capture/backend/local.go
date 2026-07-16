@@ -12,7 +12,10 @@ import (
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
-const maxLocalDeviceBytes = 512
+const (
+	maxLocalDeviceBytes      = 512
+	defaultLocalStartupGrace = 200 * time.Millisecond
+)
 
 // LocalConfig describes the narrow Linux-first ffmpeg capture boundary.
 // Executable and Device are private operational inputs and are never copied to
@@ -25,6 +28,7 @@ type LocalConfig struct {
 	Device       string
 	Format       AudioFormat
 	StopTimeout  time.Duration
+	StartupGrace time.Duration
 	Clock        func() time.Time
 	NewSegmentID func() (string, error)
 	Liveness     LivenessChecker
@@ -55,8 +59,12 @@ func NewLocalBackend(cfg LocalConfig) (Backend, error) {
 		capabilities.Status = capture.CapabilityReady
 		capabilities.Devices = []capture.Device{{ID: "configured", Name: "Configured local input", Kind: capture.DeviceKindAudioInput, Default: true, Available: true}}
 		capabilities.DefaultDeviceID = "configured"
-		eng = &processEngine{runner: runner, label: "local", executable: cfg.Executable, stopTimeout: cfg.StopTimeout, buildArgs: func(outputPath string, format AudioFormat) []string {
-			return []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-f", cfg.Driver, "-i", cfg.Device, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-y", outputPath}
+		startupGrace := cfg.StartupGrace
+		if startupGrace <= 0 {
+			startupGrace = defaultLocalStartupGrace
+		}
+		eng = &processEngine{runner: runner, label: "local", executable: cfg.Executable, stopTimeout: cfg.StopTimeout, startupGrace: startupGrace, buildArgs: func(outputPath string, format AudioFormat) []string {
+			return []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-f", cfg.Driver, "-i", cfg.Device, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-f", "wav", "-y", outputPath}
 		}}
 	}
 	recorder := newRecorder(cfg.Paths, eng, capabilities)

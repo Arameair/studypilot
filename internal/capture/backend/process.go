@@ -26,6 +26,33 @@ type ProcessSpec struct {
 	StopTimeout time.Duration
 }
 
+// processStartFailure records whether a failed process start is fully
+// resolved. Diagnostics are bounded internal evidence and are deliberately
+// excluded from Error so they cannot cross the public capture boundary.
+type processStartFailure struct {
+	cause       error
+	resolved    bool
+	diagnostics string
+}
+
+func (e *processStartFailure) Error() string { return e.cause.Error() }
+func (e *processStartFailure) Unwrap() error { return e.cause }
+
+func newProcessStartFailure(cause error, resolved bool, diagnostics string) error {
+	return &processStartFailure{cause: cause, resolved: resolved, diagnostics: diagnostics}
+}
+
+func processStartResolved(err error) bool {
+	var failure *processStartFailure
+	if errors.As(err, &failure) {
+		return failure.resolved
+	}
+	// ProcessRunner.Start returning without a handle means it did not transfer
+	// ownership of a live process. Implementations with uncertain liveness must
+	// return a processStartFailure that explicitly says otherwise.
+	return true
+}
+
 // ProcessRunner launches recorder processes. It is injected so unit tests use a
 // fake runner and never spawn a real process.
 type ProcessRunner interface {
@@ -95,8 +122,12 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 		close(handle.done)
 	}()
 	if err := ctx.Err(); err != nil {
-		_ = handle.Kill()
-		return nil, newError(ErrorCancelled, "process", "recording start was cancelled", err)
+		killErr := handle.Kill()
+		return nil, newProcessStartFailure(
+			newError(ErrorCancelled, "process", "recording start was cancelled", err),
+			killErr == nil,
+			stderr.String(),
+		)
 	}
 	return handle, nil
 }

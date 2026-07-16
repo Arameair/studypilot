@@ -54,12 +54,18 @@ constructs a fixed `ffmpeg` argument vector equivalent to:
 -f <pulse|alsa> -i <configured device argument>
 -ac 1 -ar 16000 -c:a pcm_s16le
 -map_metadata -1 -fflags +bitexact -flags:a +bitexact
--y <authoritative partial path>
+-f wav -y <authoritative partial path>
 ```
 
 The output path comes only from the validated session segment authority.
 Standard output is discarded and standard error is bounded internally; raw
 diagnostics and the full command are never public results.
+
+After launch, StudyPilot waits through a bounded 200 millisecond startup
+stability window. A recorder that exits during that window is a failed start,
+not an active recording. A resolved failure releases ownership and deletes
+empty or header-only output. Valid partial audio is retained with partial
+metadata; uncertain process liveness retains ownership for explicit recovery.
 
 ## WAV format
 
@@ -118,6 +124,29 @@ results report backend `local`, a safe driver, device `configured`, status
 Normal `make verify` never opens audio hardware. With explicit user approval
 and purpose-created speech, run:
 
+First validate the exact configured source directly. For PulseAudio:
+
+```sh
+ffmpeg \
+  -hide_banner \
+  -loglevel error \
+  -f pulse \
+  -i "$STUDYPILOT_CAPTURE_DEVICE" \
+  -t 3 \
+  -ac 1 \
+  -ar 16000 \
+  -c:a pcm_s16le \
+  -f wav \
+  /tmp/studypilot-device-test.wav
+```
+
+For ALSA, use the same command with `-f alsa` and the configured ALSA device.
+This prerequisite records three seconds and is intentionally never run by
+normal verification. Inspect it only for purpose-created test speech, then
+delete it when the check is complete.
+
+After that prerequisite succeeds, run the isolated StudyPilot harness:
+
 ```sh
 STUDYPILOT_LOCAL_CAPTURE_INTEGRATION=1 \
 STUDYPILOT_CAPTURE_BACKEND=local \
@@ -133,6 +162,10 @@ restart inspection. It checks format, non-empty data, manifests, prior-segment
 hash stability, absence of clean-success partials/ownership, and child reaping.
 It retains isolated evidence on failure and removes it after success unless
 `STUDYPILOT_KEEP_VALIDATION_WORKSPACE=1` is set.
+On failure it reports the retained evidence directory, failed stage, safe API
+error when available, and the presence of partial output, ownership, or a live
+recorder. It never prints FFmpeg stderr, the full command, or the configured
+device.
 
 ## Privacy and limitations
 

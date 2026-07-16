@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Arameair/studypilot/internal/capture"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
@@ -14,17 +15,21 @@ import (
 
 // fakeRunner is a deterministic ProcessRunner that never spawns a real process.
 type fakeRunner struct {
-	available    map[string]string
-	frames       int
-	startErr     error
-	earlyExitErr error
-	terminateErr error
-	killErr      error
-	stderr       string
-	writeWAV     bool
-	started      int
-	lastSpec     ProcessSpec
-	lastHandle   *fakeHandle
+	available          map[string]string
+	frames             int
+	startErr           error
+	earlyExitErr       error
+	terminateErr       error
+	killErr            error
+	stderr             string
+	writeWAV           bool
+	writeOutput        func(ProcessSpec) error
+	startAfterWriteErr error
+	exited             bool
+	exitAfter          time.Duration
+	started            int
+	lastSpec           ProcessSpec
+	lastHandle         *fakeHandle
 }
 
 func (r *fakeRunner) Lookup(name string) (string, error) {
@@ -45,13 +50,24 @@ func (r *fakeRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle
 			return nil, err
 		}
 	}
-	handle := &fakeHandle{earlyExitErr: r.earlyExitErr, terminateErr: r.terminateErr, killErr: r.killErr, stderr: r.stderr}
+	if r.writeOutput != nil {
+		if err := r.writeOutput(spec); err != nil {
+			return nil, err
+		}
+	}
+	if r.startAfterWriteErr != nil {
+		return nil, r.startAfterWriteErr
+	}
+	handle := &fakeHandle{earlyExitErr: r.earlyExitErr, exited: r.exited, exitAfter: r.exitAfter, startedAt: time.Now(), terminateErr: r.terminateErr, killErr: r.killErr, stderr: r.stderr}
 	r.lastHandle = handle
 	return handle, nil
 }
 
 type fakeHandle struct {
 	earlyExitErr error
+	exited       bool
+	exitAfter    time.Duration
+	startedAt    time.Time
 	terminateErr error
 	killErr      error
 	stderr       string
@@ -62,7 +78,7 @@ type fakeHandle struct {
 func (h *fakeHandle) Terminate(ctx context.Context) error { h.terminated = true; return h.terminateErr }
 func (h *fakeHandle) Kill() error                         { h.killed = true; return h.killErr }
 func (h *fakeHandle) Exited() (bool, error, string) {
-	if h.earlyExitErr != nil {
+	if h.exited || h.earlyExitErr != nil || (h.exitAfter > 0 && time.Since(h.startedAt) >= h.exitAfter) {
 		return true, h.earlyExitErr, h.stderr
 	}
 	return false, nil, h.stderr
@@ -149,9 +165,11 @@ func TestLinuxBackendUnavailableWhenNoRecorder(t *testing.T) {
 func TestLinuxBackendReportsProcessExit(t *testing.T) {
 	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true, earlyExitErr: errors.New("exit status 1")}
 	backend, sessionRoot := newLinuxBackend(t, runner)
-	active := startSegment(t, backend, sessionRoot, 1)
-	if _, err := backend.FinalizeSegment(context.Background(), active); CodeOf(err) != ErrorProcessExited {
-		t.Fatalf("finalize after early exit = %v", err)
+	if _, err := backend.StartSegment(context.Background(), StartSegmentRequest{SessionRoot: sessionRoot, SessionID: testSessionID, CaptureID: testCaptureID, Number: 1, DeviceID: "default"}); CodeOf(err) != ErrorPartialOutput {
+		t.Fatalf("start after early exit = %v", err)
+	}
+	if _, present, err := readOwnership(segmentsPath(sessionRoot)); err != nil || present {
+		t.Fatalf("resolved failed start retained ownership: present=%t err=%v", present, err)
 	}
 }
 

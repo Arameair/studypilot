@@ -105,6 +105,9 @@ func (e *syntheticEngine) begin(ctx context.Context, partialPath string, format 
 	}
 	result, writeErr := e.source.WriteAudio(ctx, file, format)
 	if writeErr != nil {
+		// Preserve meaningful failed-start evidence as a parseable partial WAV.
+		// The partial suffix and failure status still prevent final presentation.
+		_ = patchWAVHeader(file, uint32(result.BytesWritten))
 		_ = file.Sync()
 		_ = file.Close()
 		return nil, writeErr
