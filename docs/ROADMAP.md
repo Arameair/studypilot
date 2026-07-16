@@ -121,10 +121,19 @@ and capture controls, finalized-segment transcription, notes and artifact
 diagnostics, loading/confirmation/conflict UX, refresh/restart continuity, and
 the isolated synthetic HTTP validation harness are complete.
 
-## Next Milestone — Real course usability test and workflow corrections (future)
-Use separately approved course material to identify and correct workflow
-friction. Do not treat this as approval for publication, AI features, or broad
-desktop packaging.
+## Pre-Test Hardening and Operational Audio Capture (implementation complete)
+Explicit Linux-first `ffmpeg` capture configuration, fixed shell-free process
+arguments, strict WAV validation, fail-closed GUI readiness, bounded
+termination/reaping, terminal transcription restart diagnostics, independent
+Host validation, unified verification, CI, and the opt-in purpose-created audio
+validation harness are implemented. Target-host operational validation remains
+a prerequisite until explicitly run.
+
+## Next Milestone — Operational local capture prerequisite validation (future)
+Run the opt-in temporary-workspace harness with approved purpose-created speech,
+the trusted local `ffmpeg`, and the explicit input. Only a PASS advances the
+roadmap to real course usability testing. This is not approval for paid-course
+capture, publication, AI features, or desktop packaging.
 
 ## Phase 19 — Asset Import and Routing (complete)
 Safe bounded private module/session asset registration is part of study artifact

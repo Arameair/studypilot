@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/application"
+	"github.com/Arameair/studypilot/internal/capture"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 	"github.com/Arameair/studypilot/internal/session"
 	"github.com/Arameair/studypilot/internal/studyartifact"
@@ -106,7 +107,7 @@ func (f *fakeApplication) CreateSessionNotes(context.Context, application.Create
 
 func newTestHandler(t *testing.T, service Application) http.Handler {
 	t.Helper()
-	handler, err := New(service, Config{Root: "/private/root", CaptureBackend: "synthetic"})
+	handler, err := New(service, Config{Root: "/private/root", CaptureBackend: "synthetic", CaptureDriver: "synthetic", CaptureDevice: "synthetic-default", CaptureAvailable: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,6 +137,48 @@ func TestHealthAndSecurityHeaders(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), "/private/root") {
 		t.Fatal("health leaked root")
+	}
+}
+
+func TestRequestHostValidationPrecedesOriginValidation(t *testing.T) {
+	handler := newTestHandler(t, &fakeApplication{})
+	tests := []struct {
+		name, host, origin string
+		want               int
+	}{
+		{"ipv4", "127.0.0.1:8765", "http://127.0.0.1:8765", 200},
+		{"localhost", "localhost:8765", "http://localhost:8765", 200},
+		{"ipv4 no port", "127.0.0.1", "", 200},
+		{"hostile", "evil.example", "", 403},
+		{"hostile matching origin", "evil.example", "http://evil.example", 403},
+		{"hostile origin", "127.0.0.1:8765", "http://evil.example", 403},
+		{"empty", "", "", 403},
+		{"wildcard", "0.0.0.0:8765", "", 403},
+		{"other loopback", "127.0.0.2:8765", "", 403},
+		{"ipv6", "[::1]:8765", "", 403},
+		{"userinfo", "user@127.0.0.1:8765", "", 403},
+		{"malformed port", "localhost:not-a-port", "", 403},
+		{"empty port", "localhost:", "", 403},
+		{"trailing dot", "localhost.:8765", "", 403},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+			req.Host = test.host
+			if test.origin != "" {
+				req.Header.Set("Origin", test.origin)
+			}
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+			if recorder.Code != test.want {
+				t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body)
+			}
+			if test.want == http.StatusForbidden {
+				if (test.host != "" && strings.Contains(recorder.Body.String(), test.host)) || recorder.Header().Get("Content-Security-Policy") == "" {
+					t.Fatal("host rejection reflected input or omitted security headers")
+				}
+			}
+		})
 	}
 }
 
@@ -193,6 +236,39 @@ func TestAPIRouteCoverage(t *testing.T) {
 				t.Fatal("private data leak")
 			}
 		})
+	}
+}
+
+func TestCaptureExecutionSummaryIsSafeAndCanBeUnavailable(t *testing.T) {
+	configured, err := New(&fakeApplication{}, Config{
+		CaptureBackend:   "local",
+		CaptureDriver:    "pulse",
+		CaptureDevice:    "configured",
+		CaptureAvailable: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := request(t, configured, http.MethodGet, "/api/v1/sessions/course-1/module-1/session-1", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"capture_execution":{"available":true,"backend":"local","device":"configured","driver":"pulse","issues":[],"status":"ready"}`) {
+		t.Fatalf("configured response=%s", response.Body)
+	}
+	for _, forbidden := range []string{"/usr/bin/ffmpeg", "private-device", "-loglevel"} {
+		if strings.Contains(response.Body.String(), forbidden) {
+			t.Fatalf("capture summary leaked %q", forbidden)
+		}
+	}
+	unavailable, err := New(&fakeApplication{}, Config{CaptureIssues: []capture.CapabilityIssue{{Code: "capture_not_configured", Message: "local capture is not configured"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response = request(t, unavailable, http.MethodGet, "/api/v1/sessions/course-1/module-1/session-1", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"available":false`) || !strings.Contains(response.Body.String(), "capture_not_configured") {
+		t.Fatalf("unavailable response=%s", response.Body)
+	}
+	response = request(t, unavailable, http.MethodPost, "/api/v1/sessions/course-1/module-1/session-1/capture/start", `{"expected_revision":1}`)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"unavailable"`) {
+		t.Fatalf("unavailable mutation response=%s", response.Body)
 	}
 }
 
@@ -320,6 +396,9 @@ func TestNewRejectsUnsafeExecutionConfiguration(t *testing.T) {
 		{TranscriptionBackend: "remote"},
 		{TranscriptionBackend: "synthetic", TranscriptionModel: "/private/model"},
 		{CaptureBackend: "system-command"},
+		{CaptureBackend: "local", CaptureDriver: "pipewire"},
+		{CaptureBackend: "local", CaptureDevice: "/private/device"},
+		{CaptureIssues: []capture.CapabilityIssue{{Code: "capture_not_configured", Message: "/private/config"}}},
 	}
 	for _, config := range tests {
 		if _, err := New(&fakeApplication{}, config); err == nil {

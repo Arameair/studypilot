@@ -18,10 +18,13 @@ type fakeRunner struct {
 	frames       int
 	startErr     error
 	earlyExitErr error
+	terminateErr error
+	killErr      error
 	stderr       string
 	writeWAV     bool
 	started      int
 	lastSpec     ProcessSpec
+	lastHandle   *fakeHandle
 }
 
 func (r *fakeRunner) Lookup(name string) (string, error) {
@@ -42,18 +45,22 @@ func (r *fakeRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle
 			return nil, err
 		}
 	}
-	return &fakeHandle{earlyExitErr: r.earlyExitErr, stderr: r.stderr}, nil
+	handle := &fakeHandle{earlyExitErr: r.earlyExitErr, terminateErr: r.terminateErr, killErr: r.killErr, stderr: r.stderr}
+	r.lastHandle = handle
+	return handle, nil
 }
 
 type fakeHandle struct {
 	earlyExitErr error
+	terminateErr error
+	killErr      error
 	stderr       string
 	terminated   bool
 	killed       bool
 }
 
-func (h *fakeHandle) Terminate(ctx context.Context) error { h.terminated = true; return h.earlyExitErr }
-func (h *fakeHandle) Kill() error                         { h.killed = true; return nil }
+func (h *fakeHandle) Terminate(ctx context.Context) error { h.terminated = true; return h.terminateErr }
+func (h *fakeHandle) Kill() error                         { h.killed = true; return h.killErr }
 func (h *fakeHandle) Exited() (bool, error, string) {
 	if h.earlyExitErr != nil {
 		return true, h.earlyExitErr, h.stderr
@@ -148,6 +155,47 @@ func TestLinuxBackendReportsProcessExit(t *testing.T) {
 	}
 }
 
+func TestProcessFinalizationPreservesTimeoutAndCancellation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		code ErrorCode
+	}{
+		{"timeout", ErrorTimeout},
+		{"cancelled", ErrorCancelled},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true, terminateErr: newError(test.code, "process", "safe injected process failure", nil)}
+			backend, sessionRoot := newLinuxBackend(t, runner)
+			active := startSegment(t, backend, sessionRoot, 1)
+			if _, err := backend.FinalizeSegment(context.Background(), active); CodeOf(err) != test.code {
+				t.Fatalf("finalize error=%v", err)
+			}
+			if _, err := os.Stat(filepath.Join(segmentsPath(sessionRoot), partialName(1))); err != nil {
+				t.Fatalf("partial evidence missing: %v", err)
+			}
+			if _, present, err := readOwnership(segmentsPath(sessionRoot)); err != nil || !present {
+				t.Fatalf("ownership evidence present=%t err=%v", present, err)
+			}
+		})
+	}
+}
+
+func TestAbortFailurePreservesOwnershipAndReturnsSafeError(t *testing.T) {
+	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true, killErr: errors.New("private raw process detail")}
+	backend, sessionRoot := newLinuxBackend(t, runner)
+	active := startSegment(t, backend, sessionRoot, 1)
+	partial, err := backend.AbortSegment(context.Background(), active)
+	if CodeOf(err) != ErrorPartialOutput || partial.Number != 1 {
+		t.Fatalf("partial=%+v err=%v", partial, err)
+	}
+	if _, present, inspectErr := readOwnership(segmentsPath(sessionRoot)); inspectErr != nil || !present {
+		t.Fatalf("ownership evidence present=%t err=%v", present, inspectErr)
+	}
+	if strings.Contains(err.(*Error).Message, "private raw") {
+		t.Fatal("safe public backend message included raw process detail")
+	}
+}
+
 func TestLinuxBackendAbortKillsAndKeepsPartial(t *testing.T) {
 	runner := &fakeRunner{available: map[string]string{"arecord": "/usr/bin/arecord"}, frames: 100, writeWAV: true}
 	backend, sessionRoot := newLinuxBackend(t, runner)
@@ -179,7 +227,8 @@ func TestExecRunnerClassifiesMissingExecutable(t *testing.T) {
 		t.Fatalf("lookup = %v", err)
 	}
 	// Starting a bogus executable fails fast without spawning a real recorder.
-	_, err := runner.Start(context.Background(), ProcessSpec{Executable: "/nonexistent/studypilot-recorder-xyz", OutputPath: filepath.Join(t.TempDir(), "out.wav")})
+	output := filepath.Join(t.TempDir(), "out.wav")
+	_, err := runner.Start(context.Background(), ProcessSpec{Executable: "/nonexistent/studypilot-recorder-xyz", Args: []string{output}, OutputPath: output})
 	if CodeOf(err) != ErrorExecutableMissing {
 		t.Fatalf("start bogus = %v", err)
 	}

@@ -166,6 +166,32 @@ func TestCaptureStaleRevisionAndConcurrency(t *testing.T) {
 	}
 }
 
+func TestCaptureShutdownPreservesRuntimeAndRequiresRecovery(t *testing.T) {
+	f := newCaptureFixture(t, nil)
+	started, err := f.service.StartCapture(context.Background(), StartCaptureRequest{CaptureRequest: captureReq(f, f.session.Revision), Backend: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := f.service.GetSession(context.Background(), SessionReferenceRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.ShutdownCapture(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	after, err := f.service.GetSession(context.Background(), SessionReferenceRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Revision != started.Revision || after.Revision != before.Revision || after.Snapshot.SessionStatus != before.Snapshot.SessionStatus || after.Snapshot.CaptureStatus != before.Snapshot.CaptureStatus {
+		t.Fatalf("shutdown mutated runtime: before=%+v after=%+v", before, after)
+	}
+	inspection, err := f.service.InspectCapture(context.Background(), InspectCaptureRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID, Backend: "synthetic"})
+	if err != nil || len(inspection.Partial) != 1 || len(inspection.Issues) == 0 || !inspection.Recoverable {
+		t.Fatalf("shutdown inspection=%+v err=%v", inspection, err)
+	}
+}
+
 func TestPauseStopRaceHasOneAuthoritativeOutcome(t *testing.T) {
 	f := newCaptureFixture(t, nil)
 	started, err := f.service.StartCapture(context.Background(), StartCaptureRequest{CaptureRequest: captureReq(f, f.session.Revision), Backend: "synthetic"})

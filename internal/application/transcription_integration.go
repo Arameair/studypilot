@@ -407,7 +407,9 @@ func reconcileTranscription(record session.Record, queue transcription.QueueInsp
 	for _, state := range states {
 		entry, ok := byJob[state.JobID]
 		if !ok {
-			add("runtime_job_missing_from_queue", "error", "runtime job is absent from the in-memory queue", state.JobID, state.SegmentID, true)
+			if !terminalTranscriptionState(state) {
+				add("runtime_job_missing_from_queue", "error", "active runtime job is absent from the in-memory queue", state.JobID, state.SegmentID, true)
+			}
 			continue
 		}
 		seen[state.JobID] = true
@@ -447,4 +449,15 @@ func reconcileTranscription(record session.Record, queue transcription.QueueInsp
 		return a.SegmentID < b.SegmentID
 	})
 	return result
+}
+
+func terminalTranscriptionState(state studyruntime.SegmentTranscriptionState) bool {
+	switch state.JobStatus {
+	case "completed", "cancelled":
+		return true
+	case "failed":
+		return state.QueueStatus == "terminal" || state.QueueStatus == "cancelled"
+	default:
+		return false
+	}
 }

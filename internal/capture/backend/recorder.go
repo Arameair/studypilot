@@ -270,8 +270,16 @@ func (r *recorder) FinalizeSegment(ctx context.Context, active ActiveSegment) (F
 		}
 		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "audio finalization failed", err)
 	}
-	if _, err := ParseWAVFile(record.partialPath); err != nil {
+	info, statErr := os.Lstat(record.partialPath)
+	if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "finalized audio path is unsafe", statErr)
+	}
+	wav, err := ParseWAVFile(record.partialPath)
+	if err != nil {
 		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "finalized audio is not a valid wav", err)
+	}
+	if wav.Format != record.format || wav.DataLen <= 0 || wav.DataLen != dataBytes {
+		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "finalized audio format or length is invalid", nil)
 	}
 	stoppedAt := r.clock().UTC()
 	warning := false
@@ -320,8 +328,10 @@ func (r *recorder) AbortSegment(ctx context.Context, active ActiveSegment) (Part
 	manifest := record.manifest(active, dataBytes, stoppedAt, studyruntime.SegmentStatusFailed, true)
 	manifest.AudioFile = partialName(active.Number)
 	_ = writeManifestAtomic(record.authority.SegmentsDir(), record.partialManifestPath(active.Number), manifest)
-	_ = removeOwnership(record.authority.SegmentsDir())
-	return PartialSegment{
+	if abortErr == nil {
+		_ = removeOwnership(record.authority.SegmentsDir())
+	}
+	partial := PartialSegment{
 		SegmentID:    active.SegmentID,
 		CaptureID:    active.CaptureID,
 		SessionID:    active.SessionID,
@@ -331,7 +341,11 @@ func (r *recorder) AbortSegment(ctx context.Context, active ActiveSegment) (Part
 		StartedAt:    active.StartedAt,
 		Backend:      r.engine.name(),
 		Recoverable:  abortErr == nil && dataBytes > 0,
-	}, nil
+	}
+	if abortErr != nil {
+		return partial, newError(ErrorPartialOutput, OpNameAbort, "recorder termination left partial output requiring inspection", abortErr)
+	}
+	return partial, nil
 }
 
 func (rec *activeRecording) partialManifestPath(number int) string {

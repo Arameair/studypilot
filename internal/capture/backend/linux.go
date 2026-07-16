@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/Arameair/studypilot/internal/capture"
@@ -121,16 +120,17 @@ func (e *unavailableEngine) begin(context.Context, string, AudioFormat) (engineH
 
 // processEngine records via an external recorder process writing a complete WAV.
 type processEngine struct {
-	runner     ProcessRunner
-	label      string
-	executable string
-	buildArgs  func(outputPath string, format AudioFormat) []string
+	runner      ProcessRunner
+	label       string
+	executable  string
+	buildArgs   func(outputPath string, format AudioFormat) []string
+	stopTimeout time.Duration
 }
 
 func (e *processEngine) name() string { return e.label }
 
 func (e *processEngine) begin(ctx context.Context, partialPath string, format AudioFormat) (engineHandle, error) {
-	handle, err := e.runner.Start(ctx, ProcessSpec{Executable: e.executable, Args: e.buildArgs(partialPath, format), OutputPath: partialPath})
+	handle, err := e.runner.Start(ctx, ProcessSpec{Executable: e.executable, Args: e.buildArgs(partialPath, format), OutputPath: partialPath, StopTimeout: e.stopTimeout})
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +153,9 @@ func (h *processEngineHandle) finalize(ctx context.Context) (int64, error) {
 	}
 	if err := h.handle.Terminate(ctx); err != nil {
 		h.done = true
+		if CodeOf(err) != "" {
+			return h.dataBytes(), err
+		}
 		return h.dataBytes(), newError(ErrorProcessExited, OpNameFinalize, "recorder process ended abnormally", err)
 	}
 	h.done = true
@@ -160,20 +163,18 @@ func (h *processEngineHandle) finalize(ctx context.Context) (int64, error) {
 }
 
 func (h *processEngineHandle) abort(context.Context) (int64, error) {
+	var err error
 	if !h.done {
-		_ = h.handle.Kill()
+		err = h.handle.Kill()
 		h.done = true
 	}
-	return h.dataBytes(), nil
+	return h.dataBytes(), err
 }
 
 func (h *processEngineHandle) dataBytes() int64 {
-	info, err := os.Stat(h.partialPath)
+	info, err := ParseWAVFile(h.partialPath)
 	if err != nil {
 		return 0
 	}
-	if size := info.Size() - wavHeaderSize; size > 0 {
-		return size
-	}
-	return 0
+	return info.DataLen
 }

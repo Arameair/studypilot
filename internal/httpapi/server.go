@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/application"
+	"github.com/Arameair/studypilot/internal/capture"
 	"github.com/Arameair/studypilot/internal/gui"
 )
 
@@ -48,7 +49,9 @@ type Application interface {
 }
 
 type Config struct {
-	Root, CaptureBackend, CaptureDevice, TranscriptionBackend, TranscriptionModel string
+	Root, CaptureBackend, CaptureDriver, CaptureDevice, TranscriptionBackend, TranscriptionModel string
+	CaptureAvailable                                                                             bool
+	CaptureIssues                                                                                []capture.CapabilityIssue
 }
 
 type api struct {
@@ -61,12 +64,27 @@ func New(applicationService Application, config Config) (http.Handler, error) {
 	if applicationService == nil {
 		return nil, errors.New("httpapi: application service is required")
 	}
-	if config.CaptureBackend == "" {
-		config.CaptureBackend = "synthetic"
-	}
-	if config.CaptureBackend != "synthetic" {
+	if config.CaptureBackend != "" && config.CaptureBackend != "synthetic" && config.CaptureBackend != "local" {
 		return nil, errors.New("httpapi: unsupported capture backend")
 	}
+	if config.CaptureDriver != "" && config.CaptureDriver != "synthetic" && config.CaptureDriver != "pulse" && config.CaptureDriver != "alsa" {
+		return nil, errors.New("httpapi: unsupported capture driver")
+	}
+	if config.CaptureAvailable && config.CaptureBackend == "" {
+		return nil, errors.New("httpapi: available capture requires a backend")
+	}
+	if config.CaptureBackend == "local" && config.CaptureDevice != "" && config.CaptureDevice != "configured" {
+		return nil, errors.New("httpapi: unsafe local capture device description")
+	}
+	if config.CaptureBackend == "synthetic" && config.CaptureDevice != "" && config.CaptureDevice != "synthetic-default" {
+		return nil, errors.New("httpapi: unsafe synthetic capture device description")
+	}
+	for _, issue := range config.CaptureIssues {
+		if !safeReference(issue.Code) || len(issue.Message) == 0 || len(issue.Message) > 240 || strings.ContainsAny(issue.Message, "\x00\r\n/\\") {
+			return nil, errors.New("httpapi: unsafe capture issue")
+		}
+	}
+	config.CaptureIssues = append([]capture.CapabilityIssue(nil), config.CaptureIssues...)
 	if config.TranscriptionBackend != "" && config.TranscriptionBackend != "synthetic" && config.TranscriptionBackend != "faster-whisper" {
 		return nil, errors.New("httpapi: unsupported transcription backend")
 	}
@@ -96,6 +114,10 @@ func (a *api) security(next http.HandlerFunc) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
+		if !validRequestHost(r.Host) {
+			writeError(w, http.StatusForbidden, "unsafe", "The request host is not allowed.", false)
+			return
+		}
 		if origin := r.Header.Get("Origin"); origin != "" && !sameOrigin(origin, r.Host) {
 			writeError(w, http.StatusForbidden, "unsafe", "Cross-origin requests are not allowed.", false)
 			return
@@ -106,6 +128,26 @@ func (a *api) security(next http.HandlerFunc) http.Handler {
 		}
 		next(w, r)
 	})
+}
+
+func validRequestHost(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || strings.ContainsAny(value, "@/\\") || strings.HasSuffix(value, ".") {
+		return false
+	}
+	host := value
+	if strings.Contains(value, ":") {
+		var port string
+		var err error
+		host, port, err = net.SplitHostPort(value)
+		if err != nil || port == "" {
+			return false
+		}
+		number, err := strconv.Atoi(port)
+		if err != nil || number < 1 || number > 65535 {
+			return false
+		}
+	}
+	return host == "127.0.0.1" || host == "localhost"
 }
 
 func sameOrigin(rawOrigin, host string) bool {

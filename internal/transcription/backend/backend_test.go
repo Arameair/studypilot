@@ -546,7 +546,9 @@ func TestRecoveryIssueMatrixAndPrivacy(t *testing.T) {
 	tests := []struct {
 		name, code string
 		mutate     func(fixture) error
-	}{{"missing text", "missing_transcript_text", func(f fixture) error {
+	}{{"missing transcript json", "missing_transcript_json", func(f fixture) error {
+		return os.Remove(filepath.Join(f.sessionRoot, filepath.FromSlash(f.artifacts.JSONRelativePath)))
+	}}, {"missing text", "missing_transcript_text", func(f fixture) error {
 		return os.Remove(filepath.Join(f.sessionRoot, filepath.FromSlash(f.artifacts.TextRelativePath)))
 	}}, {"missing provenance", "missing_provenance", func(f fixture) error {
 		return os.Remove(filepath.Join(f.sessionRoot, filepath.FromSlash(f.artifacts.ProvenanceRelativePath)))

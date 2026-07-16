@@ -2,10 +2,11 @@
 
 ## Current Milestone
 
-The Minimal Session and Capture GUI Workflow provides a complete local browser
-control surface from course/module selection and session creation through two
-capture segments, transcription, notes, artifact inspection, explicit session
-completion, and restart continuity.
+Pre-test hardening adds explicit Linux-first operational capture composition,
+safe capture readiness in the GUI, child-process shutdown recovery, exact WAV
+validation, terminal transcription restart correction, independent Host
+validation, unified verification, and CI. Real purpose-created capture remains
+an opt-in host prerequisite rather than an assumed success.
 
 ## Completed Capabilities
 
@@ -30,6 +31,10 @@ completion, and restart continuity.
   capture and a Linux process backend boundary, real segment files with
   atomic partial-to-final durability, exclusive ownership, versioned manifests,
   read-only crash recovery inspection, and a `BackendService` adapter
+- Explicit local `ffmpeg` capture with a fixed shell-free argument vector,
+  `pulse`/`alsa` allowlist, private configured-device closure, conservative safe
+  capability issues, exact PCM/WAV finalization checks, and bounded stop/kill/
+  reap behavior
 - Application-owned capture orchestration, atomic runtime segment persistence,
   synthetic capture CLI, restart restoration, and mismatch diagnostics
 - Privacy-safe setup rendering: successful and dry-run filesystem outcomes use
@@ -78,6 +83,10 @@ completion, and restart continuity.
   control reasons, separate loading states, terminal-action confirmations,
   duplicate-mutation guards, conflict refresh, cancellation-aware synchronous
   transcription, and a passing temporary two-segment GUI validation harness
+- Fail-closed capture configuration and safe GUI readiness; terminal
+  transcription restart inspection without false queue errors; strict
+  Host-before-Origin validation; unified `make verify`; deterministic CI; and
+  an opt-in operational local capture/transcription harness
 
 ## Package Map
 
@@ -94,12 +103,13 @@ transcript creation or publication authority.
 
 ## Known Limitations
 
-No real-vault recording or usability test, persistent transcription queue,
+No real paid-course usability test, persistent transcription queue,
 desktop wrapper, remote access, browser microphone capture, asset upload,
 Markdown editor, file watcher, artifact background worker, AI note generation,
 summarization, RAG, internal tutor, publication automation, public migration
-application, rollback command, cross-process artifact/mutation lock, or
-cross-process recording ownership enforcement exists.
+application, rollback command, or cross-process artifact/mutation lock exists.
+Operational capture is Linux-first and requires an explicitly configured
+trusted `ffmpeg` and local input.
 
 ## Session Stash Warning
 
@@ -108,14 +118,14 @@ without an explicit reconciliation task.
 
 ## Next Approved Milestone
 
-**Real course usability test and workflow corrections**. Exercise the proven
-local workflow with separately approved course material, record friction and
-recovery findings, and make focused corrections without expanding architecture.
+**Operational local capture prerequisite validation**. Run the opt-in harness
+with purpose-created speech and explicit approved local configuration. Advance
+to a real course usability test only after capture/finalization passes.
 
 ## Verification
 
-Run `go test ./...`, `go test -race ./...`, `go vet ./...`, `go list ./...`,
-`make build`, and `git diff --check`.
+Run `make verify`. Real microphone and faster-whisper integrations remain
+separate explicit opt-in validations.
 
 ## Privacy
 

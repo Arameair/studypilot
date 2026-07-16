@@ -68,11 +68,12 @@ completion marker. Filename checks alone are not treated as sufficient.
 ## Restart behavior
 
 Runtime, capture state, and artifacts survive independent CLI processes. The
-in-memory queue does not. Completed restart inspection therefore reports only
-`runtime_job_missing_from_queue` for each durable runtime job and does not
-downgrade, recreate, resume, repair, or delete anything. Separate tests preserve
-queued, claimed, and running runtime states across application reconstruction
-without fabricating ownership.
+in-memory queue does not. Healthy terminal completed, failed, and cancelled
+runtime jobs do not emit a queue-missing error solely because the process
+restarted. Active queued, claimed, running, partial, retry-waiting, and
+finalizing states without queue ownership still report
+`runtime_job_missing_from_queue`. Inspection never downgrades, recreates,
+resumes, repairs, deletes, or fabricates ownership.
 
 ## Queue process limitation
 

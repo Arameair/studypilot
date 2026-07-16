@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 	"github.com/Arameair/studypilot/internal/transcription"
 	transcriptionbackend "github.com/Arameair/studypilot/internal/transcription/backend"
 	"github.com/Arameair/studypilot/internal/workspace"
@@ -83,6 +84,56 @@ func TestExecuteTranscriptionSyntheticPersistsArtifactsAndFourRevisions(t *testi
 	}
 	if strings.Contains(string(mustJSON(t, after.Snapshot)), "Synthetic transcription") {
 		t.Fatal("runtime contains transcript text")
+	}
+	fresh, err := NewService(Dependencies{Now: func() time.Time { return f.now }, GenerateID: func(string) (string, error) { return "unused", nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := fresh.InspectTranscription(context.Background(), InspectTranscriptionRequest{Root: f.root, CourseRef: f.session.CourseID, ModuleRef: f.session.ModuleID, SessionRef: f.session.ID})
+	if err != nil || hasInspectionCode(inspection.Issues, "runtime_job_missing_from_queue") {
+		t.Fatalf("healthy terminal restart inspection=%+v err=%v", inspection, err)
+	}
+}
+
+func TestTerminalTranscriptionStatesDoNotRequireProcessQueue(t *testing.T) {
+	for _, status := range []string{"completed", "failed", "cancelled"} {
+		t.Run(status, func(t *testing.T) {
+			f := finalizedTranscriptionFixture(t, nil)
+			record, _, err := f.service.resolveSession(context.Background(), transcriptionReference(f.root, f.session.CourseID, f.session.ModuleID, f.session.ID), "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			record.Runtime.Snapshot.Transcriptions = []studyruntime.SegmentTranscriptionState{{SegmentID: record.Runtime.Snapshot.Segments[0].ID, SegmentNumber: 1, JobID: f.job.String(), JobStatus: status, QueueStatus: "terminal", Attempt: 1, MaxAttempts: 3}}
+			inspection := reconcileTranscription(record, transcription.QueueInspection{Entries: []transcription.QueueEntry{}, Issues: []transcription.QueueIssue{}})
+			if hasInspectionCode(inspection.Issues, "runtime_job_missing_from_queue") {
+				t.Fatalf("terminal state required process queue: %+v", inspection)
+			}
+		})
+	}
+}
+
+func TestActiveTranscriptionStatesRequireProcessQueue(t *testing.T) {
+	tests := []struct{ job, queue string }{
+		{"queued", "queued"},
+		{"preparing", "claimed"},
+		{"running", "claimed"},
+		{"partial", "claimed"},
+		{"finalizing", "claimed"},
+		{"failed", "retry_waiting"},
+	}
+	for _, test := range tests {
+		t.Run(test.job+"_"+test.queue, func(t *testing.T) {
+			f := finalizedTranscriptionFixture(t, nil)
+			record, _, err := f.service.resolveSession(context.Background(), transcriptionReference(f.root, f.session.CourseID, f.session.ModuleID, f.session.ID), "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			record.Runtime.Snapshot.Transcriptions = []studyruntime.SegmentTranscriptionState{{SegmentID: record.Runtime.Snapshot.Segments[0].ID, SegmentNumber: 1, JobID: f.job.String(), JobStatus: test.job, QueueStatus: test.queue, Attempt: 1, MaxAttempts: 3}}
+			inspection := reconcileTranscription(record, transcription.QueueInspection{Entries: []transcription.QueueEntry{}, Issues: []transcription.QueueIssue{}})
+			if !hasInspectionCode(inspection.Issues, "runtime_job_missing_from_queue") {
+				t.Fatalf("active state did not require process queue: %+v", inspection)
+			}
+		})
 	}
 }
 

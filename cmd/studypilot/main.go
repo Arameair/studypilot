@@ -17,10 +17,7 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/application"
-	"github.com/Arameair/studypilot/internal/capture"
-	"github.com/Arameair/studypilot/internal/capture/backend"
 	"github.com/Arameair/studypilot/internal/course"
-	"github.com/Arameair/studypilot/internal/workspace"
 )
 
 var version = "dev"
@@ -97,17 +94,12 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 }
 
 func newCaptureService(stderr io.Writer) (*application.Service, int) {
-	factory := func(paths workspace.Paths, name string, resolve func(string) (string, error)) (application.CaptureService, error) {
-		if name != "synthetic" {
-			return nil, capture.NewError(capture.ErrorUnavailable, capture.OpStart, false, capture.OutcomeNotStarted, "unknown capture backend", nil)
-		}
-		raw, err := backend.NewSyntheticBackend(backend.SyntheticConfig{Paths: paths})
-		if err != nil {
-			return nil, err
-		}
-		return backend.NewBackendService(raw, resolve)
+	config, err := loadGUICaptureConfig()
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: initialize capture configuration")
+		return nil, 1
 	}
-	service, err := application.NewService(application.Dependencies{Now: now, GenerateID: course.DefaultIDGenerator, CaptureServices: factory})
+	service, err := application.NewService(application.Dependencies{Now: now, GenerateID: course.DefaultIDGenerator, CaptureServices: configuredCaptureFactory(config, true)})
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: initialize application service\n")
 		return nil, 1

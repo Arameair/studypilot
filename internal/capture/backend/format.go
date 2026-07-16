@@ -96,9 +96,10 @@ type WAVInfo struct {
 	TotalLen int64
 }
 
-// ParseWAV validates a PCM WAV byte stream: RIFF/WAVE identifiers, a 16-byte PCM
-// fmt chunk, and a data chunk whose declared length matches the trailing bytes
-// and the RIFF chunk size. It is strict enough to prove generated files valid.
+// ParseWAV validates a PCM WAV byte stream. It accepts standard ancillary RIFF
+// chunks produced by local recorders while requiring one PCM fmt chunk, one
+// bounded data chunk, internally consistent format fields, and an exact RIFF
+// length.
 func ParseWAV(data []byte) (WAVInfo, error) {
 	fail := func(message string) (WAVInfo, error) {
 		return WAVInfo{}, newError(ErrorInternal, "parse_wav", message, nil)
@@ -109,39 +110,54 @@ func ParseWAV(data []byte) (WAVInfo, error) {
 	if string(data[0:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
 		return fail("missing RIFF/WAVE identifiers")
 	}
-	if string(data[12:16]) != "fmt " {
-		return fail("missing fmt chunk")
-	}
-	if binary.LittleEndian.Uint32(data[16:20]) != 16 {
-		return fail("fmt chunk is not 16-byte PCM")
-	}
-	if binary.LittleEndian.Uint16(data[20:22]) != 1 {
-		return fail("format is not PCM")
-	}
-	format := AudioFormat{
-		Channels:   int(binary.LittleEndian.Uint16(data[22:24])),
-		SampleRate: int(binary.LittleEndian.Uint32(data[24:28])),
-		BitDepth:   int(binary.LittleEndian.Uint16(data[34:36])),
-	}
-	if err := format.Validate(); err != nil {
-		return WAVInfo{}, err
-	}
-	if int(binary.LittleEndian.Uint32(data[28:32])) != format.byteRate() {
-		return fail("byte rate is inconsistent")
-	}
-	if int(binary.LittleEndian.Uint16(data[32:34])) != format.blockAlign() {
-		return fail("block align is inconsistent")
-	}
-	if string(data[36:40]) != "data" {
-		return fail("missing data chunk")
-	}
-	dataLen := int64(binary.LittleEndian.Uint32(data[40:44]))
 	riffLen := int64(binary.LittleEndian.Uint32(data[4:8]))
-	if dataLen != int64(len(data))-wavHeaderSize {
-		return fail("data chunk length disagrees with file length")
+	if riffLen != int64(len(data))-8 {
+		return fail("riff chunk size disagrees with file length")
 	}
-	if riffLen != 36+dataLen {
-		return fail("riff chunk size disagrees with data length")
+	var format AudioFormat
+	foundFormat, foundData := false, false
+	dataLen := int64(0)
+	offset := 12
+	for offset+8 <= len(data) {
+		chunkID := string(data[offset : offset+4])
+		chunkLen := int(binary.LittleEndian.Uint32(data[offset+4 : offset+8]))
+		start := offset + 8
+		end := start + chunkLen
+		if chunkLen < 0 || end < start || end > len(data) {
+			return fail("wav chunk exceeds file length")
+		}
+		switch chunkID {
+		case "fmt ":
+			if foundFormat || chunkLen < 16 || binary.LittleEndian.Uint16(data[start:start+2]) != 1 {
+				return fail("format is not canonical PCM")
+			}
+			format = AudioFormat{Channels: int(binary.LittleEndian.Uint16(data[start+2 : start+4])), SampleRate: int(binary.LittleEndian.Uint32(data[start+4 : start+8])), BitDepth: int(binary.LittleEndian.Uint16(data[start+14 : start+16]))}
+			if err := format.Validate(); err != nil {
+				return WAVInfo{}, err
+			}
+			if int(binary.LittleEndian.Uint32(data[start+8:start+12])) != format.byteRate() || int(binary.LittleEndian.Uint16(data[start+12:start+14])) != format.blockAlign() {
+				return fail("pcm format rates are inconsistent")
+			}
+			foundFormat = true
+		case "data":
+			if foundData {
+				return fail("multiple data chunks")
+			}
+			dataLen, foundData = int64(chunkLen), true
+		}
+		offset = end
+		if chunkLen%2 != 0 {
+			offset++
+		}
+		if offset > len(data) {
+			return fail("wav chunk padding exceeds file length")
+		}
+	}
+	if offset != len(data) {
+		return fail("wav contains a truncated trailing chunk")
+	}
+	if !foundFormat || !foundData {
+		return fail("wav requires fmt and data chunks")
 	}
 	if dataLen%int64(format.blockAlign()) != 0 {
 		return fail("data length is not a whole number of frames")

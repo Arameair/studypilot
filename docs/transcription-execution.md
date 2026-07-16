@@ -88,8 +88,10 @@ component downloads or searches remotely for a model.
 The queue is not persistent. Standalone enqueue and run commands are therefore
 not exposed. Combined `execute` retains queue and lifecycle state for the whole
 operation. A later `inspect` process loads durable runtime and artifacts but has
-an empty queue, so it reports `runtime_job_missing_from_queue` rather than
-fabricating ownership or history.
+an empty queue. Active runtime states still report
+`runtime_job_missing_from_queue`; terminal completed, failed, and cancelled jobs
+do not require process-local queue ownership. Their durable metadata and
+artifacts are validated directly without fabricating ownership or history.
 
 ## Inspection and recovery
 
@@ -123,5 +125,5 @@ The complete synthetic and real operator path is validated in
 [transcription-workflow-validation.md](transcription-workflow-validation.md).
 Study artifact organization and the initial local GUI architecture are now
 complete, and the minimal GUI workflow now validates two synchronous synthetic
-executions plus restart continuity. The next milestone is **Real course
-usability test and workflow corrections**.
+executions plus restart continuity. The next milestone remains **Operational
+local capture prerequisite validation** before any real course usability test.

@@ -165,6 +165,22 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 			return
 		}
 		response := workspaceDTO(result)
+		captureStatus := "unavailable"
+		if a.config.CaptureAvailable {
+			captureStatus = "ready"
+		}
+		captureIssues := make([]map[string]string, 0, len(a.config.CaptureIssues))
+		for _, issue := range a.config.CaptureIssues {
+			captureIssues = append(captureIssues, map[string]string{"code": issue.Code, "message": issue.Message})
+		}
+		response["capture_execution"] = map[string]any{
+			"available": a.config.CaptureAvailable,
+			"backend":   a.config.CaptureBackend,
+			"driver":    a.config.CaptureDriver,
+			"device":    a.config.CaptureDevice,
+			"status":    captureStatus,
+			"issues":    captureIssues,
+		}
 		available := a.config.TranscriptionBackend != "" && a.config.TranscriptionModel != ""
 		status, issue := "ready", ""
 		if !available {
@@ -234,6 +250,10 @@ func (a *api) captureRoutes(w http.ResponseWriter, r *http.Request, course, modu
 		return
 	}
 	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	if (parts[5] == "start" || parts[5] == "resume") && !a.config.CaptureAvailable {
+		writeError(w, http.StatusConflict, "unavailable", "Capture is not configured for this StudyPilot process.", true)
 		return
 	}
 	var request revisionRequest

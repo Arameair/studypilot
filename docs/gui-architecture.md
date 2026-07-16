@@ -24,6 +24,10 @@ LAN, and IPv6 addresses. The server provides no remote-access mode,
 authentication scheme, daemon mode, port forwarding, analytics, or cloud
 connection.
 
+Every request independently validates `Host` before `Origin` and Fetch Metadata.
+Only exact `127.0.0.1` and `localhost`, with an optional valid port, are accepted;
+a matching hostile Host and Origin pair is still rejected.
+
 ## Embedded frontend
 
 The HTML, JavaScript, and CSS under `internal/gui/web` are embedded in the Go
@@ -45,6 +49,10 @@ artifact, revision, and control state. Controls are derived by the runtime
 contracts; frontend button state is advisory and every transition is validated
 again by the application layer.
 
+`capture_execution` adds only safe process readiness: availability, backend,
+driver, the synthetic ID or `configured`, status, and fixed issue messages. It
+never contains an executable path, raw device, command, output path, or stderr.
+
 ## Frontend workflow
 
 The usable shell has course selection, module workspaces, session creation and
@@ -63,6 +71,11 @@ the browser does not access a microphone and no audio is uploaded over HTTP.
 Pause, resume, stop, segment finalization, and session independence retain their
 existing semantics.
 
+Capture is unavailable by default. Explicit `STUDYPILOT_CAPTURE_BACKEND=local`
+uses the configured local backend; explicit `synthetic` is development/test
+mode. Unavailable capture disables Start Recording while navigation, notes,
+artifacts, and session controls remain usable.
+
 Transcription execution uses the existing synchronous application operation.
 The HTTP request remains active until completion, timeout, or cancellation.
 There is no polling worker, persistent queue, background execution, retry
@@ -72,8 +85,10 @@ daemon, or automatic model download.
 
 Ctrl+C cancels the GUI context. The HTTP server stops accepting requests,
 cancels active request contexts, and performs a bounded five-second graceful
-shutdown. Existing application and backend cancellation behavior is retained;
-shutdown does not complete a session or invent recovery state.
+shutdown. The application then aborts and reaps active capture children within
+a bounded window. Partial WAV/manifest evidence is preserved and authoritative
+runtime is left unchanged so restart inspection requires recovery. Shutdown
+does not complete a session or invent finalized state.
 
 ## Current exclusions
 
@@ -84,4 +99,5 @@ usability test.
 
 ## Next milestone
 
-The next milestone is **Real course usability test and workflow corrections**.
+The next milestone remains **Operational local capture prerequisite validation**
+until the opt-in purpose-created audio harness passes on the target host.

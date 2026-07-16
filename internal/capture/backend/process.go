@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,9 +20,10 @@ const maxStderrBytes = 4096
 // directly to the executable; no shell is ever involved and no string is
 // concatenated into a command line.
 type ProcessSpec struct {
-	Executable string
-	Args       []string
-	OutputPath string
+	Executable  string
+	Args        []string
+	OutputPath  string
+	StopTimeout time.Duration
 }
 
 // ProcessRunner launches recorder processes. It is injected so unit tests use a
@@ -63,15 +65,17 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 	if spec.Executable == "" {
 		return nil, newError(ErrorInvalidRequest, "process", "empty executable", nil)
 	}
-	cmd := exec.CommandContext(ctx, spec.Executable, spec.Args...)
+	if spec.OutputPath == "" || len(spec.Args) == 0 || spec.Args[len(spec.Args)-1] != spec.OutputPath {
+		return nil, newError(ErrorInvalidRequest, "process", "recorder output argument is not authoritative", nil)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, newError(ErrorCancelled, "process", "recording start was cancelled", err)
+	}
+	cmd := exec.Command(spec.Executable, spec.Args...)
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	stderr := &boundedBuffer{limit: maxStderrBytes}
 	cmd.Stderr = stderr
-	// Graceful cancellation: send a termination signal, then force-kill after a
-	// short grace period, so a cancelled context never orphans the process.
-	cmd.Cancel = func() error { return terminateProcess(cmd) }
-	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Start(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 			return nil, newError(ErrorExecutableMissing, "process", "recorder executable not found", err)
@@ -81,37 +85,64 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 		}
 		return nil, newError(ErrorInternal, "process", "start recorder process", err)
 	}
-	handle := &execHandle{cmd: cmd, stderr: stderr, done: make(chan struct{})}
+	stopTimeout := spec.StopTimeout
+	if stopTimeout <= 0 {
+		stopTimeout = 2 * time.Second
+	}
+	handle := &execHandle{cmd: cmd, stderr: stderr, done: make(chan struct{}), stopTimeout: stopTimeout}
 	go func() {
 		handle.waitErr = cmd.Wait()
 		close(handle.done)
 	}()
+	if err := ctx.Err(); err != nil {
+		_ = handle.Kill()
+		return nil, newError(ErrorCancelled, "process", "recording start was cancelled", err)
+	}
 	return handle, nil
 }
 
 type execHandle struct {
-	cmd     *exec.Cmd
-	stderr  *boundedBuffer
-	done    chan struct{}
-	once    sync.Once
-	waitErr error
+	cmd         *exec.Cmd
+	stderr      *boundedBuffer
+	done        chan struct{}
+	once        sync.Once
+	waitErr     error
+	stopTimeout time.Duration
+	expected    atomic.Bool
 }
 
 func (h *execHandle) Terminate(ctx context.Context) error {
-	h.once.Do(func() { _ = terminateProcess(h.cmd) })
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	h.once.Do(func() {
+		h.expected.Store(true)
+		_ = terminateProcess(h.cmd)
+	})
+	timer := time.NewTimer(h.stopTimeout)
+	defer timer.Stop()
 	select {
 	case <-h.done:
+		return h.exitError()
 	case <-ctx.Done():
 		_ = h.cmd.Process.Kill()
 		<-h.done
-	case <-time.After(2 * time.Second):
+		code := ErrorCancelled
+		message := "recording stop was cancelled"
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			code = ErrorTimeout
+			message = "recording stop deadline expired"
+		}
+		return newError(code, "process", message, ctx.Err())
+	case <-timer.C:
 		_ = h.cmd.Process.Kill()
 		<-h.done
+		return newError(ErrorTimeout, "process", "recorder did not stop before the configured timeout", nil)
 	}
-	return h.exitError()
 }
 
 func (h *execHandle) Kill() error {
+	h.expected.Store(true)
 	_ = h.cmd.Process.Kill()
 	<-h.done
 	return h.exitError()
@@ -132,7 +163,7 @@ func (h *execHandle) exitError() error {
 	}
 	// A signalled exit after our own termination is expected, not a failure.
 	var exitErr *exec.ExitError
-	if errors.As(h.waitErr, &exitErr) && !exitErr.Success() {
+	if h.expected.Load() && errors.As(h.waitErr, &exitErr) && !exitErr.Success() {
 		return nil
 	}
 	return h.waitErr

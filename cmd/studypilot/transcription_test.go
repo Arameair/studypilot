@@ -82,8 +82,8 @@ func TestTranscriptionExecuteJSONAndRestartInspection(t *testing.T) {
 	if code != 0 || inspectErr != "" || strings.Contains(inspectOut, root) || strings.Contains(inspectOut, "Synthetic transcription") {
 		t.Fatalf("inspect code=%d stdout=%q stderr=%q", code, inspectOut, inspectErr)
 	}
-	if !strings.Contains(inspectOut, "runtime_job_missing_from_queue") || !strings.Contains(inspectOut, "completed") {
-		t.Fatalf("restart boundary not diagnosed: %s", inspectOut)
+	if strings.Contains(inspectOut, "runtime_job_missing_from_queue") || !strings.Contains(inspectOut, "completed") {
+		t.Fatalf("healthy terminal restart was misdiagnosed: %s", inspectOut)
 	}
 }
 

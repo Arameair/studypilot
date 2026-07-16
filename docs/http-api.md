@@ -82,6 +82,11 @@ roots, external asset sources, transcript text, note bodies, audio data,
 credentials, model paths, Python paths, and repository handles. Health returns
 only `status` and `api_version`.
 
+Session workspaces include a `capture_execution` object. It reports safe
+availability, backend, driver, device description, readiness, and fixed issue
+codes. The raw local device and recorder executable never cross the composition
+root into the HTTP configuration or DTO.
+
 ## Revision and conflict handling
 
 The API does not add mutation authority. Expected revisions flow into existing
@@ -93,8 +98,10 @@ from session runtime revision.
 ## Security headers and origin policy
 
 Every response sets a self-only Content Security Policy, `nosniff`, frame
-denial, `no-referrer`, and `no-store`. Requests with a mismatched `Origin` or a
-cross-site Fetch Metadata value are rejected. There is no directory listing,
+denial, `no-referrer`, and `no-store`. Middleware first accepts only Host
+`127.0.0.1` or `localhost` with an optional valid port; it then checks Origin
+against that validated Host and rejects cross-site Fetch Metadata. Hostile Host
+is rejected even when paired with the same hostile Origin. There is no directory listing,
 arbitrary file serving, history fallback, CORS wildcard, CDN, or remote asset.
 
 ## Synchronous transcription
@@ -109,7 +116,9 @@ start a background worker or provide persistent queue ownership.
 The server gives requests cancellable contexts. GUI cancellation stops
 acceptance, cancels active requests, and runs bounded graceful shutdown. The
 existing process runner is responsible for interrupting and reaping an active
-local transcription worker. Shutdown never silently completes a session.
+local transcription worker. Application shutdown also aborts/reaps active audio
+capture while preserving partial evidence and unchanged runtime for recovery.
+Shutdown never silently completes a session.
 
 ## Current exclusions and next milestone
 
@@ -117,4 +126,5 @@ The API has no authentication because it cannot bind remotely. It also has no
 desktop wrapper, browser microphone, file upload, Markdown editor, persistent
 queue, background worker, AI feature, or publication operation.
 
-The next milestone is **Real course usability test and workflow corrections**.
+The next milestone is **Operational local capture prerequisite validation**
+until real purpose-created capture passes on the target host.

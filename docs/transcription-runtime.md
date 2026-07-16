@@ -60,10 +60,13 @@ and are sorted deterministically.
 ## Restart limitation
 
 Runtime summaries survive application reconstruction. `MemoryQueue` does not:
-it is empty after reconstruction. Inspection reports surviving runtime jobs as
-`runtime_job_missing_from_queue`; it does not fabricate ownership, discard
-runtime state, repair, or resume work. Combined CLI `execute` keeps enqueue and
-execution in one process specifically because of this boundary.
+it is empty after reconstruction. Inspection reports active surviving runtime
+jobs as `runtime_job_missing_from_queue`. Healthy terminal completed, failed,
+and cancelled jobs instead rely on durable metadata/artifact validation and do
+not fail solely because the queue restarted. Inspection does not fabricate
+ownership, discard runtime state, repair, or resume work. Combined CLI `execute`
+keeps enqueue and execution in one process specifically because of this
+boundary.
 
 ## Current exclusions and next milestone
 

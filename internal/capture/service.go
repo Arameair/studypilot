@@ -21,6 +21,13 @@ type Service interface {
 	Inspect(ctx context.Context, req InspectRequest) (Inspection, error)
 }
 
+// ShutdownService is an optional lifecycle contract for process-backed capture
+// services. Shutdown aborts active production, preserves partial evidence, and
+// never mutates the authoritative session runtime.
+type ShutdownService interface {
+	Shutdown(context.Context) error
+}
+
 // UnavailableService is the safe production default before a real capture
 // backend exists. It probes no hardware, writes nothing, fabricates no
 // devices, and reports every operation as unavailable with a stable error.

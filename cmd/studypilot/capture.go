@@ -4,9 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/Arameair/studypilot/internal/application"
 	"io"
 	"strings"
+
+	"github.com/Arameair/studypilot/internal/application"
 )
 
 const captureUsage = `StudyPilot capture commands
@@ -16,7 +17,7 @@ Usage:
   studypilot capture pause   --course REF --module REF --session REF --revision N [--root PATH] [--json]
   studypilot capture resume  --course REF --module REF --session REF --revision N [--device ID] [--root PATH] [--json]
   studypilot capture stop    --course REF --module REF --session REF --revision N [--root PATH] [--json]
-  studypilot capture inspect --course REF --module REF --session REF [--backend synthetic] [--root PATH] [--json]
+  studypilot capture inspect --course REF --module REF --session REF [--backend synthetic|local] [--root PATH] [--json]
 `
 
 func runCapture(args []string, stdout, stderr io.Writer) int {
@@ -74,10 +75,10 @@ func runCaptureOperation(op string, args []string, stdout, stderr io.Writer) int
 		return captureUsageError(stderr, "capture "+op+" requires a positive --revision")
 	}
 	if op == "start" && (!backendName.set || backendName.value != "synthetic") {
-		return captureUsageError(stderr, "capture start requires --backend synthetic")
+		return captureUsageError(stderr, "capture start requires --backend synthetic; operational local recording uses 'studypilot gui'")
 	}
-	if op == "inspect" && backendName.set && backendName.value != "synthetic" {
-		return captureUsageError(stderr, "capture inspect supports only --backend synthetic")
+	if op == "inspect" && backendName.set && backendName.value != "synthetic" && backendName.value != "local" {
+		return captureUsageError(stderr, "capture inspect supports only --backend synthetic or --backend local")
 	}
 	service, code := newCaptureService(stderr)
 	if service == nil {

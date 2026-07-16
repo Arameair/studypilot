@@ -63,7 +63,7 @@ func TestSyntheticHTTPWorkflowThroughApplicationLayer(t *testing.T) {
 	if _, err = service.CreateModule(ctx, application.ModuleCreateRequest{Root: root, CourseRef: "HTTP Course", Number: 1, Name: "HTTP Module"}); err != nil {
 		t.Fatal(err)
 	}
-	handler, err := New(service, Config{Root: root, CaptureBackend: "synthetic", TranscriptionBackend: "synthetic", TranscriptionModel: "synthetic/deterministic"})
+	handler, err := New(service, Config{Root: root, CaptureBackend: "synthetic", CaptureDriver: "synthetic", CaptureDevice: "synthetic-default", CaptureAvailable: true, TranscriptionBackend: "synthetic", TranscriptionModel: "synthetic/deterministic"})
 	if err != nil {
 		t.Fatal(err)
 	}

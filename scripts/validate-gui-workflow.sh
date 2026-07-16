@@ -32,6 +32,7 @@ port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); p
 base="http://127.0.0.1:$port"
 
 start_server() {
+  STUDYPILOT_CAPTURE_BACKEND=synthetic \
   STUDYPILOT_TRANSCRIPTION_BACKEND=synthetic \
   STUDYPILOT_TRANSCRIPTION_MODEL_ID=synthetic/deterministic \
     bin/studypilot gui --root "$root" --address "127.0.0.1:$port" >"$server_log" 2>&1 &
@@ -132,6 +133,7 @@ stop_server
 start_server
 api GET "$session_base"
 python3 -c 'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert value["session"]["session_status"] == "completed"; assert len(value["session"]["segments"]) == 2; assert all(x["transcription_status"] == "completed" for x in value["session"]["segments"]); assert value["notes"]["session_exists"]' "$response"
+python3 -c 'import json,sys; value=json.load(open(sys.argv[1], encoding="utf-8")); assert not any(x.get("code") == "runtime_job_missing_from_queue" for x in value["transcription"]["issues"])' "$response"
 stop_server
 
 success=1

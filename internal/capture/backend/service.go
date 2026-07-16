@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -67,6 +68,39 @@ func (s *BackendService) SetCaptureIDGenerator(gen capture.CaptureIDGenerator) {
 var _ capture.Service = (*BackendService)(nil)
 var _ capture.RecoveryInspector = (*BackendService)(nil)
 var _ capture.RestorableService = (*BackendService)(nil)
+var _ capture.ShutdownService = (*BackendService)(nil)
+
+// Shutdown aborts every active segment owned by this process. It deliberately
+// does not update session runtime: the preserved partial evidence and unchanged
+// recording state cause the next inspection to report recovery required.
+func (s *BackendService) Shutdown(ctx context.Context) error {
+	type activeCapture struct {
+		instance *serviceInstance
+		segment  ActiveSegment
+	}
+	s.mu.Lock()
+	active := make([]activeCapture, 0)
+	for _, instance := range s.instances {
+		if instance.active != nil {
+			active = append(active, activeCapture{instance: instance, segment: *instance.active})
+		}
+	}
+	s.mu.Unlock()
+
+	var failures []error
+	for _, item := range active {
+		if _, err := s.backend.AbortSegment(ctx, item.segment); err != nil {
+			failures = append(failures, err)
+			continue
+		}
+		s.mu.Lock()
+		if item.instance.active != nil && item.instance.active.SegmentID == item.segment.SegmentID {
+			item.instance.active = nil
+		}
+		s.mu.Unlock()
+	}
+	return errors.Join(failures...)
+}
 
 type segmentRecoverer interface {
 	RecoverSegment(context.Context, StartSegmentRequest) (ActiveSegment, error)

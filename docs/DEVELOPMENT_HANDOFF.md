@@ -36,8 +36,8 @@ derivatives.
 
 ## Commands and Tests
 
-Run `go test ./...`, `go test -race ./...`, `go vet ./...`, `go list ./...`,
-`make build`, and `git diff --check`.
+Run `make verify`. It includes Go tests/race/vet/list/build, Python worker tests,
+shell syntax checks, and `git diff --check` without opening audio hardware.
 
 ## Forbidden Shortcuts
 
@@ -47,10 +47,12 @@ real vaults.
 
 ## Current Milestone
 
-The minimal browser workflow is implemented and validated end to end with
-synthetic capture and transcription. It covers selection, session creation,
-two finalized segments, transcription, notes, artifacts, explicit completion,
-conflicts, cancellation, and server restart continuity.
+The browser workflow is implemented and validated end to end synthetically.
+Production composition now requires explicit local or synthetic capture,
+process-backed local capture is shell-free and recovery-safe, terminal
+transcription restart diagnostics and HTTP Host validation are corrected, and
+normal verification plus CI are unified. Real local capture has not been
+claimed without the opt-in host validation.
 
 ## Session Stash Warning
 
@@ -59,16 +61,18 @@ architecture without explicit review.
 
 ## Next Safe Action
 
-Conduct a separately approved **Real course usability test and workflow
-corrections**. Record concrete interaction and recovery defects, then make
-focused corrections. Do not add desktop packaging, remote access, browser
+Run the separately approved **Operational local capture prerequisite
+validation** with purpose-created speech and the explicit target-host
+configuration. Advance to real course workflow testing only on PASS. Do not add
+desktop packaging, remote access, browser
 microphone, asset upload, Markdown editing, persistent/background workers, AI
 features, publication automation, or apply the stash.
 
 ## Real-Vault Safety Rule
 
-Use `t.TempDir()` and synthetic data only. Never run migration against the real
-private or public vault.
+Use `t.TempDir()`, synthetic data, or explicitly approved purpose-created
+validation speech only. Never run migration or capture against the real private
+or public vault.
 
 ## Documentation Update Requirement
 

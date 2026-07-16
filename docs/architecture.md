@@ -1,6 +1,6 @@
 # Architecture
 
-The initial local GUI follows `embedded browser frontend → loopback-only
+The local GUI follows `embedded browser frontend → loopback-only
 internal/httpapi → internal/application → existing domain and persistence
 packages`. HTTP handlers own transport validation and path-free DTO mapping but
 hold no repository, filesystem, capture, transcription, artifact, or workflow
@@ -10,11 +10,18 @@ remote dependency. See [gui-architecture.md](gui-architecture.md) and
 temporary validation boundary are documented in
 [gui-workflow.md](gui-workflow.md).
 
-Transcription follows `CLI/future GUI → internal/application →
+Transcription follows `CLI/GUI → internal/application →
 internal/transcription → queue/backend`. `internal/runtime` owns its safe
 persisted summary and `internal/session` owns atomic revisioned persistence.
 The current queue and fake service are in-process only; adapters do not invoke
 them directly.
+
+Audio capture follows `browser/CLI → internal/application → internal/capture →
+internal/capture/backend → configured ffmpeg process`. Production selection is
+explicit: `local` uses a fixed shell-free `ffmpeg` request for a configured
+`pulse` or `alsa` input, `synthetic` is an explicit development/test choice,
+and an unconfigured GUI disables recording without substituting fake audio.
+HTTP never imports a concrete backend. See [local-capture.md](local-capture.md).
 
 `internal/transcription/backend` now defines the local execution, strict worker
 protocol, conservative discovery, and private artifact authority. It remains
@@ -35,7 +42,7 @@ binds capture manifests, transcript documents, text, provenance, job metadata,
 runtime revisions, and restart diagnostics without using a real vault. See
 [transcription-workflow-validation.md](transcription-workflow-validation.md).
 
-The private study inventory follows `CLI/future GUI → internal/application →
+The private study inventory follows `CLI/GUI → internal/application →
 internal/studyartifact → managed private module storage`. `studyartifact` owns
 transcript, note, and asset identities, canonical note/asset paths, the single
 module-local revisioned index, and read-only reconciliation. It does not import
@@ -70,7 +77,7 @@ retrospectives.
 
 ## System boundary
 
-StudyPilot will eventually create and validate the private vault and public
+StudyPilot creates and validates the private vault and public
 portfolio as separate workspaces. They must have separate Git histories and
 must never be treated as one repository.
 
@@ -108,13 +115,13 @@ The dependency direction is one-way:
 ```text
 cmd/studypilot ─┐
 (future tray) ──┼─> internal/application ─> internal/workspace
-(future GUI) ───┘                          internal/course
+(local GUI) ────┘                          internal/course
                                            internal/filesystem
 ```
 
 Domain packages never import `internal/application`, and `internal/application`
 never imports `cmd/studypilot`. This lets a tray controller or GUI reuse the
-same use cases the CLI uses today by depending only on the application layer.
+same use cases by depending only on the application layer.
 
 A `Service` is constructed with explicit `Dependencies` — an injectable clock
 and the course/module ID generator — so timestamps and identities are
@@ -158,21 +165,21 @@ inspection supports reconciliation after a durability error.
 Per-path locks ensure two goroutines in one process cannot both succeed from the
 same expected state. Separate processes are not locked; the last revalidation
 narrows that race but cannot eliminate it. Stronger cross-process coordination
-is a remaining operational requirement. Future session code must use this
+is a remaining operational requirement. Session and application code use this
 primitive instead of writing state directly. See
 [atomic-mutation.md](atomic-mutation.md).
 
 ## Runtime state contracts
 
-`internal/runtime` defines schema-versioned, UI-neutral snapshots for future
-CLI, tray, graphical, recovery, capture, and transcription consumers. Session,
+`internal/runtime` defines schema-versioned, UI-neutral snapshots for CLI,
+graphical, recovery, capture, and transcription consumers. Session,
 capture, transcription, filesystem, and publication states are independent. A
 capture stop or failure therefore never completes a learning session; session
 completion remains an explicit user workflow.
 
 Snapshots provide validated state and pure control-availability helpers, not
-runtime behavior or persistence. Future application services will safely mutate
-and persist these contracts. Recording is modeled as numbered segment summaries
+runtime behavior or persistence. Application services safely mutate and the
+session repository persists these contracts. Recording is modeled as numbered segment summaries
 so pause can finalize one segment and resume can begin another without replacing
 completed media. See [runtime-state.md](runtime-state.md).
 
@@ -285,7 +292,7 @@ and repairs nothing. Reporting issues is a successful read, not a failure. See
 
 ## Capture service contracts
 
-`internal/capture` defines the UI-neutral contracts for future recording and
+`internal/capture` defines the UI-neutral contracts for recording and
 media-segment capture: capability discovery, device abstraction, capture and
 segment identity, explicit start/pause/resume/stop and failure contracts,
 partial/uncertain outcomes, cancellation and timeout behavior, capture error
@@ -296,7 +303,7 @@ real vault.
 The package depends solely on the standard library and `internal/runtime`. It
 never mutates session status, completes sessions, persists state, or performs
 I/O. `internal/runtime` owns the state contracts and `internal/session` owns
-persistence; the application layer will later coordinate the two. The
+persistence; the application layer coordinates the two. The
 application owns a `CaptureService` interface that fixes the dependency direction
 (application depends on capture, never the reverse); the safe `UnavailableService`
 default and the deterministic race-safe `FakeService` both satisfy it. Resume
@@ -308,10 +315,12 @@ transcription, filesystem, and publication status. See
 
 ## Recording backend
 
-`internal/capture/backend` is the first real recording backend beneath the
+`internal/capture/backend` owns recording beneath the
 capture contracts. It creates actual WAV segment files under a validated
-session's `Segments` directory, with a mandatory deterministic synthetic backend
-and a Linux process backend boundary that fails safely when no recorder exists.
+session's `Segments` directory, with a deterministic synthetic backend and an
+explicit Linux-first local `ffmpeg` backend. The local backend accepts only the
+fixed driver allowlist and a private configured device argument; it exposes the
+safe identifier `configured` rather than private process configuration.
 It depends only on the standard library, `internal/capture`, and
 `internal/workspace`; it never mutates session status, writes runtime state,
 transcribes, publishes, or touches the public vault.
@@ -323,6 +332,8 @@ and resume always starts a new numbered segment — never reopening a finalized
 one. Read-only recovery inspection classifies partial audio, missing manifests
 or audio, conflicting files, malformed or unsupported manifests, and stale or
 active ownership without repairing anything. A `BackendService` adapts the
-backend to `capture.Service`; the seam to session persistence is a
-`SessionResolver` the next milestone will back with `internal/session`. See
-[recording-backend.md](recording-backend.md).
+backend to `capture.Service`; application supplies its session resolver and owns
+revision-protected runtime persistence. On shutdown, active process backends are
+terminated and reaped, partial evidence is preserved, and runtime is not
+falsely advanced. See [recording-backend.md](recording-backend.md) and
+[local-capture.md](local-capture.md).

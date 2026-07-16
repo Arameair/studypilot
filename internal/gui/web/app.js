@@ -131,6 +131,8 @@ function renderSession(value) {
   const finalized = value.session.segments.filter(segment => segment.status === 'stopped').length;
   const overview = [['Session', friendlyCode(value.session.session_status)], ['Runtime revision', value.session.revision], ['Capture', captureLabel(value)], ['Finalized segments', finalized], ['Transcription', friendlyCode(value.session.transcription_status)], ['Session notes', value.notes.session_exists ? 'Created' : 'Missing'], ['Artifact revision', value.artifact_revision], ['Artifact issues', value.artifact_issues.length]];
   $('#session-overview').replaceChildren(...overview.map(([term, description]) => { const wrap = document.createElement('div'); wrap.append(textElement('dt', term), textElement('dd', String(description))); return wrap; }));
+  const captureExecution = value.capture_execution;
+  $('#capture-capability').textContent = captureExecution.available ? `Backend: ${captureExecution.backend} · Driver: ${captureExecution.driver} · Device: ${captureExecution.device} · Status: Ready` : `Capture unavailable: ${(captureExecution.issues || []).map(issue => issue.message).join(' ') || 'Local capture is not configured for this GUI process.'}`;
   $('#capture-status').textContent = captureLabel(value); renderIssues('#capture-issues', value.capture.issues);
   const capability = value.transcription_execution; $('#transcription-capability').textContent = capability.available ? `Backend: ${capability.backend} · Model: ${capability.model} · Status: Ready` : `Transcription unavailable: ${capability.issue}`;
   $('#segments').replaceChildren(...value.session.segments.filter(segment => segment.status === 'stopped').map(segmentCard));
@@ -163,7 +165,7 @@ function segmentCard(segment) {
 function updateControls(value) {
   const mapping = {'start-session':'start_session','complete-session':'complete_session','start-capture':'start_capture','pause-capture':'pause_capture','resume-capture':'resume_capture','stop-capture':'stop_capture','create-session-notes':'create_session_notes','refresh-artifacts':'refresh_artifacts','inspect-artifacts':'inspect_artifacts'};
   for (const button of document.querySelectorAll('[data-action]')) {
-    const key = mapping[button.dataset.action]; const pending = state.busy.has(button.dataset.action); button.disabled = pending || !value.controls[key]; button.setAttribute('aria-disabled', String(button.disabled)); button.title = value.control_reasons[key] || (button.dataset.action === 'create-session-notes' && value.notes.session_exists ? 'Session notes already exist.' : '');
+    const key = mapping[button.dataset.action]; const pending = state.busy.has(button.dataset.action); const captureUnavailable = button.dataset.action === 'start-capture' && !value.capture_execution.available; button.disabled = pending || !value.controls[key] || captureUnavailable; button.setAttribute('aria-disabled', String(button.disabled)); button.title = captureUnavailable ? 'Configure a local or explicit synthetic capture backend before recording.' : value.control_reasons[key] || (button.dataset.action === 'create-session-notes' && value.notes.session_exists ? 'Session notes already exist.' : '');
   }
 }
 

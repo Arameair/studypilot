@@ -183,13 +183,8 @@ func TestSyntheticTwoSegmentTranscriptionWorkflowAcrossRestarts(t *testing.T) {
 	}
 
 	transcriptionInspection := workflowCommand(t, append([]string{"transcription", "inspect"}, append(base, "--json")...)...)
-	if transcriptionInspection["aggregate_status"] != "complete" || len(transcriptionInspection["jobs"].([]any)) != 2 || len(transcriptionInspection["issues"].([]any)) != 2 {
+	if transcriptionInspection["aggregate_status"] != "complete" || len(transcriptionInspection["jobs"].([]any)) != 2 || len(transcriptionInspection["issues"].([]any)) != 0 {
 		t.Fatalf("transcription inspection=%v", transcriptionInspection)
-	}
-	for _, raw := range transcriptionInspection["issues"].([]any) {
-		if raw.(map[string]any)["code"] != "runtime_job_missing_from_queue" {
-			t.Fatalf("unexpected restart issue: %v", raw)
-		}
 	}
 	if got := workflowCommand(t, append([]string{"session", "get"}, append(base, "--json")...)...); got["session_status"] != "active" {
 		t.Fatalf("transcription completed the session: %v", got)
