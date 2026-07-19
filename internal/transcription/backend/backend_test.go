@@ -112,7 +112,7 @@ func TestBackendRejectsLinkedSourceAudio(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(original, f.input); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	backend, _ := NewSyntheticBackend(SyntheticConfig{Clock: func() time.Time { return f.now }})
 	if _, err := backend.Transcribe(context.Background(), request(f)); CodeOf(err) != ErrorUnsafePath {
@@ -286,7 +286,7 @@ func TestArtifactAuthorityRejectsUnsafeBoundaries(t *testing.T) {
 	}
 	target, _ := authority.Resolve(f.artifacts.JSONRelativePath)
 	if err = os.Symlink(f.input, target); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, err = authority.Resolve(f.artifacts.JSONRelativePath); CodeOf(err) != ErrorUnsafePath {
 		t.Fatal("symlinked target accepted")
@@ -321,7 +321,7 @@ func TestArtifactAuthorityRejectsUnsafeBoundaries(t *testing.T) {
 	}
 	_ = os.RemoveAll(authority.TranscriptsDir())
 	if err = os.Symlink(t.TempDir(), authority.TranscriptsDir()); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if err = authority.EnsureDir(); CodeOf(err) != ErrorUnsafePath {
 		t.Fatal(err)
@@ -650,8 +650,12 @@ func TestArtifactJSONDeterministicAndNoSecrets(t *testing.T) {
 
 func TestConservativeLocalDiscovery(t *testing.T) {
 	root := t.TempDir()
+	python := filepath.Join(root, "python.exe")
 	worker := filepath.Join(root, "worker.py")
 	model := filepath.Join(root, "model")
+	if err := os.WriteFile(python, []byte("synthetic executable"), 0o750); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(worker, []byte("# synthetic"), 0o640); err != nil {
 		t.Fatal(err)
 	}
@@ -659,9 +663,9 @@ func TestConservativeLocalDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &fakeRunner{}
-	discovery := LocalDiscovery{Runner: runner, PythonExecutable: "python3", ModelPaths: map[string]string{"faster-whisper/small.en": model}, ProbeTimeout: time.Second}
+	discovery := LocalDiscovery{Runner: runner, PythonExecutable: python, ModelPaths: map[string]string{"faster-whisper/small.en": model}, ProbeTimeout: time.Second}
 	ctx := context.Background()
-	if !discovery.Python(ctx, "python3") || !discovery.Worker(ctx, worker) || !discovery.Package(ctx, "faster-whisper") || !discovery.Model(ctx, "faster-whisper/small.en") {
+	if !discovery.Python(ctx, python) || !discovery.Worker(ctx, worker) || !discovery.Package(ctx, "faster-whisper") || !discovery.Model(ctx, "faster-whisper/small.en") {
 		t.Fatal("verified local components were not discovered")
 	}
 	if discovery.Package(ctx, "arbitrary-package") || discovery.Model(ctx, "missing") {
@@ -669,18 +673,18 @@ func TestConservativeLocalDiscovery(t *testing.T) {
 	}
 	linked := filepath.Join(root, "worker-link.py")
 	if err := os.Symlink(worker, linked); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if discovery.Worker(ctx, linked) {
 		t.Fatal("symlinked worker accepted")
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	if discovery.Python(cancelled, "python3") {
+	if discovery.Python(cancelled, python) {
 		t.Fatal("cancelled discovery succeeded")
 	}
 	runner.lookupErr = errors.New("missing")
-	if discovery.Python(ctx, "python3") {
+	if discovery.Python(ctx, python) {
 		t.Fatal("missing executable reported available")
 	}
 }

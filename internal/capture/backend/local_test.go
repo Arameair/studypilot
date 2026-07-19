@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -16,17 +17,28 @@ import (
 
 func localExecutable(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "ffmpeg")
+	name := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		name = "ffmpeg.exe"
+	}
+	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, []byte("synthetic executable fixture\n"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	return path
 }
 
+func localTestDriver() string {
+	if runtime.GOOS == "windows" {
+		return "dshow"
+	}
+	return "pulse"
+}
+
 func newLocalBackend(t *testing.T, runner ProcessRunner, mutate func(*LocalConfig)) (Backend, string) {
 	t.Helper()
 	paths, sessionRoot := newSession(t)
-	config := LocalConfig{Paths: paths, Runner: runner, Executable: localExecutable(t), Driver: "pulse", Device: "purpose-created-test-input", StopTimeout: 50 * time.Millisecond, StartupGrace: time.Nanosecond, Clock: fixedClock(), NewSegmentID: sequentialSegmentIDs(), Liveness: deadLiveness}
+	config := LocalConfig{Paths: paths, Runner: runner, Executable: localExecutable(t), Driver: localTestDriver(), Device: "purpose-created-test-input", StopTimeout: 50 * time.Millisecond, StartupGrace: time.Nanosecond, Clock: fixedClock(), NewSegmentID: sequentialSegmentIDs(), Liveness: deadLiveness}
 	if mutate != nil {
 		mutate(&config)
 	}
@@ -48,7 +60,7 @@ func TestLocalBackendUsesFixedShellFreeFFmpegRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-f", "pulse", "-i", "purpose-created-test-input", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-f", "wav", "-y", runner.lastSpec.OutputPath}
+	want := localFFmpegArgs(localTestDriver(), "purpose-created-test-input", runner.lastSpec.OutputPath)
 	if !reflect.DeepEqual(runner.lastSpec.Args, want) || runner.lastSpec.Executable == "" || runner.lastSpec.StopTimeout != 50*time.Millisecond {
 		t.Fatalf("process spec=%+v", runner.lastSpec)
 	}
@@ -64,7 +76,11 @@ func TestLocalBackendUsesFixedShellFreeFFmpegRequest(t *testing.T) {
 }
 
 func TestLocalBackendConstructsEachAllowedDriverAsOneArgument(t *testing.T) {
-	for _, driver := range []string{"pulse", "alsa"} {
+	drivers := []string{"pulse", "alsa"}
+	if runtime.GOOS == "windows" {
+		drivers = []string{"dshow"}
+	}
+	for _, driver := range drivers {
 		t.Run(driver, func(t *testing.T) {
 			runner := &fakeRunner{frames: 160, writeWAV: true}
 			value, sessionRoot := newLocalBackend(t, runner, func(config *LocalConfig) {
@@ -75,7 +91,11 @@ func TestLocalBackendConstructsEachAllowedDriverAsOneArgument(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if runner.lastSpec.Args[5] != driver || runner.lastSpec.Args[7] != "configured input with punctuation !@#$%" {
+			wantInput := "configured input with punctuation !@#$%"
+			if runtime.GOOS == "windows" {
+				wantInput = "audio=" + wantInput
+			}
+			if argumentAfter(runner.lastSpec.Args, "-f") != driver || argumentAfter(runner.lastSpec.Args, "-i") != wantInput {
 				t.Fatalf("driver/device argument construction=%q", runner.lastSpec.Args)
 			}
 			if _, err := value.AbortSegment(context.Background(), active); err != nil {
@@ -216,7 +236,13 @@ func TestLocalCapabilityDiscoveryFailsClosed(t *testing.T) {
 		mutate     func(*LocalConfig)
 	}{
 		{"not configured", "capture_not_configured", func(c *LocalConfig) { c.Executable = "" }},
-		{"missing executable", "capture_executable_missing", func(c *LocalConfig) { c.Executable = filepath.Join(t.TempDir(), "ffmpeg") }},
+		{"missing executable", "capture_executable_missing", func(c *LocalConfig) {
+			name := "ffmpeg"
+			if runtime.GOOS == "windows" {
+				name = "ffmpeg.exe"
+			}
+			c.Executable = filepath.Join(t.TempDir(), name)
+		}},
 		{"unsafe executable", "capture_executable_unsafe", func(c *LocalConfig) { c.Executable = "/bin/sh" }},
 		{"unsupported driver", "capture_driver_unsupported", func(c *LocalConfig) { c.Driver = "network" }},
 		{"missing device", "capture_device_missing", func(c *LocalConfig) { c.Device = "" }},
@@ -252,7 +278,7 @@ func TestLocalBackendDoesNotExposePrivateConfigurationInCapabilities(t *testing.
 	device := "private device identifier with punctuation !@#$%"
 	executable := localExecutable(t)
 	paths, _ := newSession(t)
-	value, err := NewLocalBackend(LocalConfig{Paths: paths, Runner: &fakeRunner{}, Executable: executable, Driver: "alsa", Device: device})
+	value, err := NewLocalBackend(LocalConfig{Paths: paths, Runner: &fakeRunner{}, Executable: executable, Driver: localTestDriver(), Device: device})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,6 +293,15 @@ func TestLocalBackendDoesNotExposePrivateConfigurationInCapabilities(t *testing.
 	if strings.Contains(serialized, device) || strings.Contains(serialized, executable) {
 		t.Fatal("capabilities exposed private configuration")
 	}
+}
+
+func argumentAfter(arguments []string, name string) string {
+	for i := 0; i+1 < len(arguments); i++ {
+		if arguments[i] == name {
+			return arguments[i+1]
+		}
+	}
+	return ""
 }
 
 func TestBackendServiceShutdownKillsProcessAndPreservesPartialEvidence(t *testing.T) {

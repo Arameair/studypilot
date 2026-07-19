@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,12 +40,13 @@ func TestReportErrorMapsKindsToExitCodes(t *testing.T) {
 }
 
 func TestRenderPlanRendersOperations(t *testing.T) {
+	root := t.TempDir()
 	result := application.PlanResult{Operations: []application.PlannedOperation{
-		{Kind: application.PlanKindDirectory, Path: "/vault/dir"},
-		{Kind: application.PlanKindFile, Path: "/vault/file.md"},
+		{Kind: application.PlanKindDirectory, Path: filepath.Join(root, "dir")},
+		{Kind: application.PlanKindFile, Path: filepath.Join(root, "file.md")},
 	}}
 	var stdout, stderr bytes.Buffer
-	code := renderPlan(result, nil, "/vault", &stdout, &stderr)
+	code := renderPlan(result, nil, root, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("renderPlan code = %d, want 0", code)
 	}
@@ -59,16 +61,17 @@ func TestRenderPlanRendersOperations(t *testing.T) {
 }
 
 func TestRenderExecutionRoutesConflictsAndCounts(t *testing.T) {
+	root := t.TempDir()
 	result := application.ExecutionResult{
 		Created: 1, Skipped: 1, Conflicts: 1,
 		Outcomes: []application.PathOutcome{
-			{Path: "/vault/a", Status: application.OutcomeCreated},
-			{Path: "/vault/b", Status: application.OutcomeSkipped},
-			{Path: "/vault/c", Status: application.OutcomeConflict, Detail: "existing file content differs"},
+			{Path: filepath.Join(root, "a"), Status: application.OutcomeCreated},
+			{Path: filepath.Join(root, "b"), Status: application.OutcomeSkipped},
+			{Path: filepath.Join(root, "c"), Status: application.OutcomeConflict, Detail: "existing file content differs"},
 		},
 	}
 	var stdout, stderr bytes.Buffer
-	code := renderExecution(result, nil, "Test", "/vault", &stdout, &stderr)
+	code := renderExecution(result, nil, "Test", root, &stdout, &stderr)
 	if code != 1 {
 		t.Errorf("renderExecution code = %d, want 1 for conflicts", code)
 	}

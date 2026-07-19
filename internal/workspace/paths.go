@@ -112,13 +112,12 @@ func expandHome(path string) (string, error) {
 		return home, nil
 	}
 
-	prefix := "~" + string(filepath.Separator)
-	if strings.HasPrefix(path, prefix) {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("determine user home directory: %w", err)
 		}
-		return filepath.Join(home, strings.TrimPrefix(path, prefix)), nil
+		return filepath.Join(home, strings.TrimLeft(path[1:], `/\`)), nil
 	}
 	if strings.HasPrefix(path, "~") {
 		return "", errors.New("only the current user's home directory may be expanded")

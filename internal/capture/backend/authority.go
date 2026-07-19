@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
@@ -65,7 +66,8 @@ func NewSegmentAuthority(paths workspace.Paths, sessionRoot string) (SegmentAuth
 	// Require the managed-session marker so arbitrary directories are refused.
 	marker := filepath.Join(sessionRoot, sessionMarkerName)
 	info, err := os.Lstat(marker)
-	if err != nil || !info.Mode().IsRegular() {
+	reparse, reparseErr := platformfs.PathHasReparsePoint(marker)
+	if err != nil || reparseErr != nil || reparse || !info.Mode().IsRegular() {
 		return fail("session directory has no managed session marker")
 	}
 	return SegmentAuthority{paths: paths, sessionRoot: sessionRoot, segmentsDir: filepath.Join(sessionRoot, segmentsDirName)}, nil
@@ -124,6 +126,15 @@ func (a SegmentAuthority) EnsureSegmentsDir() error {
 		return newError(ErrorInternal, "authority", "inspect Segments directory", err)
 	}
 	if err := os.Mkdir(a.segmentsDir, 0o750); err != nil {
+		if os.IsExist(err) {
+			info, inspectErr := os.Lstat(a.segmentsDir)
+			if inspectErr == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+				reparse, reparseErr := platformfs.PathHasReparsePoint(a.segmentsDir)
+				if reparseErr == nil && !reparse {
+					return nil
+				}
+			}
+		}
 		return newError(ErrorInternal, "authority", "create Segments directory", err)
 	}
 	return nil
@@ -132,6 +143,13 @@ func (a SegmentAuthority) EnsureSegmentsDir() error {
 // rejectSymlink returns an unsafe-path error if the path exists as a symlink. A
 // missing path is acceptable (the caller may create it safely).
 func rejectSymlink(path string) error {
+	reparse, reparseErr := platformfs.PathHasReparsePoint(path)
+	if reparseErr != nil && !os.IsNotExist(reparseErr) {
+		return newError(ErrorInternal, "authority", "inspect path", reparseErr)
+	}
+	if reparse {
+		return newError(ErrorUnsafePath, "authority", "path is a symlink or reparse point", nil)
+	}
 	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {

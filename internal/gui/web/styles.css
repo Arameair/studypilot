@@ -6,11 +6,13 @@ header, .view-heading { justify-content: space-between; }
 header h1, header p, .view-heading h2, .eyebrow { margin: 0; }
 nav { border-block: 1px solid var(--line); padding: .75rem 0; }
 main > section, main > div { margin-top: 1.1rem; }
-button, input { font: inherit; padding: .6rem .8rem; }
+button, input, textarea { font: inherit; padding: .6rem .8rem; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .55; }
-button:focus-visible, input:focus-visible, summary:focus-visible { outline: .2rem solid var(--accent); outline-offset: .15rem; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: .2rem solid var(--accent); outline-offset: .15rem; }
 input { min-width: min(24rem, 100%); flex: 1; }
+textarea { display: block; width: 100%; margin: .5rem 0; resize: vertical; font-family: ui-monospace, monospace; }
+.note-meta { display: flex; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .5rem; }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); gap: .75rem; margin-top: .75rem; }
 .card, .segment, .warning-panel, .issue-group { border: 1px solid var(--line); border-radius: .4rem; padding: .85rem; }
 .card button { width: 100%; text-align: left; }

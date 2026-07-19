@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -94,12 +96,52 @@ func (s *Service) GetSession(ctx context.Context, req SessionReferenceRequest) (
 }
 
 func (s *Service) StartSession(ctx context.Context, req UpdateSessionRequest) (SessionResult, error) {
-	return s.transition(nonNilContext(ctx), req, opStartSession, []studyruntime.SessionStatus{studyruntime.SessionStatusPlanned}, studyruntime.SessionStatusActive, func(_, next *studyruntime.Snapshot) {
+	ctx = nonNilContext(ctx)
+	record, repository, err := s.resolveSession(ctx, referenceFromUpdate(req), opStartSession)
+	if err != nil {
+		return SessionResult{}, err
+	}
+	pristine := pristineCaptureState(record)
+	return s.transitionRecord(ctx, repository, record, req.ExpectedRevision, opStartSession, []studyruntime.SessionStatus{studyruntime.SessionStatusPlanned}, studyruntime.SessionStatusActive, func(_, next *studyruntime.Snapshot) {
 		if next.SessionStartedAt == nil {
 			started := next.UpdatedAt
 			next.SessionStartedAt = &started
 		}
+		if pristine && next.CaptureStatus == studyruntime.CaptureStatusUnavailable {
+			next.CaptureStatus = studyruntime.CaptureStatusReady
+		}
 	})
+}
+
+func pristineCaptureState(record session.Record) bool {
+	snapshot := record.Runtime.Snapshot
+	if snapshot.SessionStatus != studyruntime.SessionStatusPlanned ||
+		snapshot.CaptureStatus != studyruntime.CaptureStatusUnavailable ||
+		snapshot.CaptureID != "" ||
+		snapshot.CurrentSegment != 0 ||
+		snapshot.SegmentStartedAt != nil ||
+		snapshot.LastError != nil ||
+		len(snapshot.Segments) != 0 {
+		return false
+	}
+	segmentsDir := filepath.Join(record.Root, "Segments")
+	entries, err := os.ReadDir(segmentsDir)
+	if os.IsNotExist(err) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		name := strings.ToLower(entry.Name())
+		if name == ".studypilot-capture.lock" ||
+			strings.HasSuffix(name, "-audio.wav") ||
+			strings.HasSuffix(name, "-audio.wav.partial") ||
+			strings.HasSuffix(name, "-segment.json") {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) InterruptSession(ctx context.Context, req InterruptSessionRequest) (SessionResult, error) {

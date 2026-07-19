@@ -103,6 +103,9 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(worker.WorkerFailure) as raised:
             worker.load_configuration({})
         self.assertEqual(raised.exception.code, "model_missing")
+        with self.assertRaises(worker.WorkerFailure) as raised:
+            worker.load_configuration({"STUDYPILOT_TRANSCRIPTION_MODEL": "base.en"})
+        self.assertEqual(raised.exception.code, "model_missing")
         invalid_wav = self.root / "invalid.wav"
         invalid_wav.write_bytes(b"not a wav")
         self.assert_failure("invalid_request", self.encoded({"input_path": str(invalid_wav)}))

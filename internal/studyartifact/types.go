@@ -20,6 +20,7 @@ import (
 const (
 	SchemaVersion = 1
 	MaxAssetSize  = int64(64 << 20)
+	MaxNoteBytes  = 256 << 10
 )
 
 var (
@@ -119,6 +120,15 @@ type Record struct {
 	Mutable                      bool                 `json:"mutable"`
 	Transcript                   *TranscriptReference `json:"transcript,omitempty"`
 	RelatedTranscriptArtifactIDs []ID                 `json:"related_transcript_artifact_ids,omitempty"`
+}
+
+// NoteDocument is the path-free authoritative note payload returned to the
+// application boundary. Revision is the enclosing artifact-index revision used
+// for optimistic concurrency.
+type NoteDocument struct {
+	Artifact Record
+	Content  string
+	Revision uint64
 }
 
 type TranscriptReference struct {

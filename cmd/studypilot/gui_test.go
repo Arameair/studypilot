@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -50,13 +51,17 @@ func TestGUICaptureRequiresExplicitSafeConfiguration(t *testing.T) {
 	if err != nil || !config.Available || config.Backend != "synthetic" || config.Device != "synthetic-default" {
 		t.Fatalf("synthetic=%+v err=%v", config, err)
 	}
-	executable := filepath.Join(t.TempDir(), "ffmpeg")
+	executableName, driver := "ffmpeg", "pulse"
+	if runtime.GOOS == "windows" {
+		executableName, driver = "ffmpeg.exe", "dshow"
+	}
+	executable := filepath.Join(t.TempDir(), executableName)
 	if err := os.WriteFile(executable, []byte("test executable\n"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("STUDYPILOT_CAPTURE_BACKEND", "local")
 	t.Setenv("STUDYPILOT_CAPTURE_EXECUTABLE", executable)
-	t.Setenv("STUDYPILOT_CAPTURE_DRIVER", "pulse")
+	t.Setenv("STUDYPILOT_CAPTURE_DRIVER", driver)
 	t.Setenv("STUDYPILOT_CAPTURE_DEVICE", "private configured device")
 	config, err = loadGUICaptureConfig()
 	if err != nil || !config.Available || config.Backend != "local" || safeCaptureDevice(config) != "configured" {

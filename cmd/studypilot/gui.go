@@ -108,7 +108,7 @@ func safeCaptureDriver(config captureRuntimeConfig) string {
 	if config.Backend == "synthetic" {
 		return "synthetic"
 	}
-	if config.Driver == "pulse" || config.Driver == "alsa" {
+	if config.Driver == "pulse" || config.Driver == "alsa" || config.Driver == "dshow" {
 		return config.Driver
 	}
 	return ""

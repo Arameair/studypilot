@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -42,7 +43,8 @@ func TestApplyMutationSuccessfullyReplacesCompleteFile(t *testing.T) {
 		t.Fatalf("content %q, error %v", content, err)
 	}
 	info, _ := os.Stat(target)
-	if result.Path != target || result.PreviousHash != managed.SHA256 || result.CurrentHash != hashString(hashState([]byte(want)).ContentHash) || result.BytesWritten != int64(len(want)) || info.Mode().Perm() != 0o640 {
+	modeMatches := runtime.GOOS == "windows" || info.Mode().Perm() == 0o640
+	if result.Path != target || result.PreviousHash != managed.SHA256 || result.CurrentHash != hashString(hashState([]byte(want)).ContentHash) || result.BytesWritten != int64(len(want)) || !modeMatches {
 		t.Fatalf("unexpected result %+v mode %v", result, info.Mode().Perm())
 	}
 	assertDirectoryEntries(t, fixture.course, []string{courseMetadataFileName, "Modules"})
@@ -283,7 +285,7 @@ func TestInspectSupportsReconciliationStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(other, target); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, err := executor.Inspect(context.Background(), authority, target); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("unsafe: %v", err)

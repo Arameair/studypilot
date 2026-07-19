@@ -67,7 +67,14 @@
 
       <section aria-labelledby="segments-title"><h3 id="segments-title">Segments and transcription</h3><div id="transcription-capability"></div><div id="transcription-progress" role="status" aria-live="polite" hidden></div><button id="cancel-transcription" type="button" hidden>Cancel transcription request</button><div id="segments"></div></section>
 
-      <section aria-labelledby="notes-title"><h3 id="notes-title">Notes</h3><div id="notes-status"></div><button data-action="create-session-notes" type="button">Create Session Notes</button></section>
+      <section aria-labelledby="notes-title"><h3 id="notes-title">Notes</h3><div id="notes-status"></div><button data-action="create-session-notes" type="button">Create Session Notes</button>
+        <div id="session-notes-editor" hidden>
+          <label for="session-notes-content">Session notes (plain-text Markdown)</label>
+          <textarea id="session-notes-content" rows="16" maxlength="262144" spellcheck="true"></textarea>
+          <div class="note-meta"><span id="notes-count">0 characters · 0 UTF-8 bytes</span><span id="notes-save-status">Not loaded</span></div>
+          <div class="controls"><button id="load-session-notes" type="button">Load/Reload Notes</button><button id="save-session-notes" type="button" disabled>Save Notes</button></div>
+        </div>
+      </section>
 
       <section aria-labelledby="artifacts-title"><h3 id="artifacts-title">Artifacts and diagnostics</h3><div class="controls"><button data-action="refresh-artifacts" type="button">Refresh Artifact Index</button><button data-action="inspect-artifacts" type="button">Inspect Artifacts</button></div><div id="artifact-loading" class="loading" hidden>Inspecting artifacts…</div><div id="artifacts"></div><div id="artifact-issues"></div></section>
     </section>

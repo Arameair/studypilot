@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"os"
 	"os/exec"
 	"time"
 )
@@ -46,13 +45,7 @@ func (ExecRunner) Run(ctx context.Context, request ProcessRequest) (ProcessResul
 		return ProcessResult{}, err
 	}
 	cmd := exec.CommandContext(ctx, request.Executable, request.Args...)
-	cmd.Cancel = func() error {
-		err := cmd.Process.Signal(os.Interrupt)
-		if errors.Is(err, os.ErrProcessDone) {
-			return nil
-		}
-		return err
-	}
+	configureProcess(cmd)
 	cmd.WaitDelay = 2 * time.Second
 	cmd.Stdin = bytes.NewReader(request.Stdin)
 	stdout := &limitedBuffer{limit: request.MaxStdout}

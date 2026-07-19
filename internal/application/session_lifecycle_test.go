@@ -101,7 +101,7 @@ func TestLifecycleStartInterruptRecoverResumeAndComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if started.Revision != 2 || started.Snapshot.SessionStatus != studyruntime.SessionStatusActive || started.Snapshot.SessionStartedAt == nil || started.Snapshot.CaptureStatus != created.Snapshot.CaptureStatus {
+	if started.Revision != 2 || started.Snapshot.SessionStatus != studyruntime.SessionStatusActive || started.Snapshot.SessionStartedAt == nil || started.Snapshot.CaptureStatus != studyruntime.CaptureStatusReady {
 		t.Fatalf("started=%+v", started)
 	}
 	transcription := started.Snapshot.TranscriptionStatus

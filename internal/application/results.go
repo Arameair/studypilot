@@ -162,6 +162,12 @@ type StudyArtifactMutationResult struct {
 	Revision          uint64
 	DurabilityWarning bool
 }
+type SessionNotesResult struct {
+	Artifact          studyartifact.Record
+	Content           string
+	Revision          uint64
+	DurabilityWarning bool
+}
 type StudyArtifactListResult struct {
 	Revision  uint64
 	Artifacts []studyartifact.Record

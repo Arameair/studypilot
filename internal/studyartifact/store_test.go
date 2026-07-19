@@ -41,6 +41,58 @@ func newArtifactFixture(t *testing.T) *artifactFixture {
 }
 func digestString(value string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(value))) }
 
+func TestSessionNotesReadUpdateValidationAndRevision(t *testing.T) {
+	f := newArtifactFixture(t)
+	ctx := context.Background()
+	created, index, err := f.store.CreateSessionNotes(ctx, "session-1", "Session Notes", 0)
+	if err != nil || index.Revision != 1 {
+		t.Fatalf("create=%+v index=%+v err=%v", created, index, err)
+	}
+	original, err := f.store.LoadSessionNotes(ctx, "session-1")
+	if err != nil || original.Artifact.ID != created.ID || original.Revision != 1 || !strings.Contains(original.Content, "# Session Notes") {
+		t.Fatalf("original=%+v err=%v", original, err)
+	}
+	audioPath := filepath.Join(f.sessionRoot, "Segments", "001-audio.wav")
+	transcriptPath := filepath.Join(f.sessionRoot, "Transcripts", "001-transcript.txt")
+	if err = os.WriteFile(audioPath, []byte("immutable audio"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(transcriptPath, []byte("immutable transcript"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	audioBefore := digestString("immutable audio")
+	transcriptBefore := digestString("immutable transcript")
+	content := "# Session Notes\n\nUnicode: café 日本語 🚀\n\n<script>alert('inert')</script>\n"
+	updated, next, err := f.store.UpdateSessionNotes(ctx, "session-1", content, 1)
+	if err != nil || next.Revision != 2 || updated.ID != created.ID || updated.SHA256 != digestString(content) || updated.SizeBytes != int64(len(content)) {
+		t.Fatalf("updated=%+v next=%+v err=%v", updated, next, err)
+	}
+	reloaded, err := f.store.LoadSessionNotes(ctx, "session-1")
+	if err != nil || reloaded.Content != content || reloaded.Revision != 2 || reloaded.Artifact.RelatedTranscriptArtifactIDs == nil && created.RelatedTranscriptArtifactIDs != nil {
+		t.Fatalf("reloaded=%+v err=%v", reloaded, err)
+	}
+	for path, want := range map[string]string{audioPath: audioBefore, transcriptPath: transcriptBefore} {
+		body, readErr := os.ReadFile(path)
+		if readErr != nil || digestString(string(body)) != want {
+			t.Fatalf("note update changed %s: err=%v", filepath.Base(path), readErr)
+		}
+	}
+	if _, _, err = f.store.UpdateSessionNotes(ctx, "session-1", "stale", 1); !errors.Is(err, ErrRevisionConflict) {
+		t.Fatalf("stale update err=%v", err)
+	}
+	for name, invalid := range map[string]string{
+		"nul":      "invalid\x00content",
+		"oversize": strings.Repeat("x", MaxNoteBytes+1),
+		"utf8":     string([]byte{0xff, 0xfe}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, _, invalidErr := f.store.UpdateSessionNotes(ctx, "session-1", invalid, 2); !errors.Is(invalidErr, ErrInvalid) {
+				t.Fatalf("invalid update err=%v", invalidErr)
+			}
+		})
+	}
+}
+
 func TestIdentityTypeScopeAndRecordValidation(t *testing.T) {
 	id, err := NewID("study-artifact-0123456789abcdef0123456789abcdef")
 	if err != nil || id.String() == "" {
@@ -183,7 +235,7 @@ func TestAssetSafetyAndUnmanagedInspection(t *testing.T) {
 	os.WriteFile(target, []byte("x"), 0o640)
 	link := filepath.Join(dir, "link.txt")
 	if err := os.Symlink(target, link); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, _, err := f.store.RegisterModuleAsset(ctx, link, "Link", "other", 0); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("link err=%v", err)

@@ -140,8 +140,6 @@ func TestSessionCreateIdempotencyKey(t *testing.T) {
 func TestSessionLifecycleThroughCLI(t *testing.T) {
 	root := setupModuleForCLI(t)
 	created := createSessionForCLI(t, root, "Lifecycle")
-	baseCapture := created.CaptureStatus
-
 	ref := created.ID
 	run := func(op string, revision uint64) sessionJSON {
 		t.Helper()
@@ -157,12 +155,12 @@ func TestSessionLifecycleThroughCLI(t *testing.T) {
 	}
 
 	started := run("start", 1)
-	if started.SessionStatus != "active" || started.Revision != 2 || started.CaptureStatus != baseCapture {
+	if started.SessionStatus != "active" || started.Revision != 2 || started.CaptureStatus != "ready" {
 		t.Fatalf("start = %+v", started)
 	}
 
 	interrupted := run("interrupt", 2)
-	if interrupted.SessionStatus != "interrupted" || interrupted.CaptureStatus != baseCapture {
+	if interrupted.SessionStatus != "interrupted" || interrupted.CaptureStatus != "ready" {
 		t.Fatalf("interrupt = %+v", interrupted)
 	}
 	recovering := run("recover", 3)

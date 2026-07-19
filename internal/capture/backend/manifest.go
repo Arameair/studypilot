@@ -2,13 +2,13 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Arameair/studypilot/internal/capture"
+	"github.com/Arameair/studypilot/internal/platformfs"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 )
 
@@ -156,7 +156,7 @@ func writeManifestAtomic(dir, path string, manifest Manifest) error {
 	if err := temporary.Close(); err != nil {
 		return newError(ErrorManifestFailed, "manifest", "close manifest temp", err)
 	}
-	if err := os.Rename(temporaryPath, path); err != nil {
+	if err := platformfs.Replace(temporaryPath, path); err != nil {
 		return newError(ErrorManifestFailed, "manifest", "install manifest", err)
 	}
 	cleanup = false
@@ -182,13 +182,5 @@ func readManifest(path string) (Manifest, error) {
 
 // syncDir fsyncs a directory so a rename within it is durable.
 func syncDir(dir string) error {
-	handle, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer handle.Close()
-	if err := handle.Sync(); err != nil && !errors.Is(err, os.ErrInvalid) {
-		return err
-	}
-	return nil
+	return platformfs.SyncDir(dir)
 }

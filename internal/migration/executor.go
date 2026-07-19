@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/filesystem"
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/schema"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
@@ -220,12 +221,7 @@ func createExclusiveSyncedFile(path string, content []byte, mode fs.FileMode) (r
 	}
 	closed = true
 	remove = false
-	directory, err := os.Open(filepath.Dir(path))
-	if err != nil {
-		return err
-	}
-	defer directory.Close()
-	return directory.Sync()
+	return platformfs.SyncDir(filepath.Dir(path))
 }
 
 func safeMkdirAll(root, target string, mode fs.FileMode) error {

@@ -146,7 +146,12 @@ func workspaceDTO(value application.SessionWorkspaceResult) map[string]any {
 		}
 	}
 	session["segments"] = segments
-	return map[string]any{"course": map[string]any{"id": value.Course.ID, "name": value.Course.Name, "slug": value.Course.Slug}, "module": map[string]any{"id": value.Module.ID, "course_id": value.Module.CourseID, "name": value.Module.Name, "slug": value.Module.Slug, "number": value.Module.Number, "sessions": value.Module.Sessions}, "session": session, "controls": map[string]bool{"start_session": value.Controls.StartSession, "start_capture": value.Controls.StartCapture, "pause_capture": value.Controls.PauseCapture, "resume_capture": value.Controls.ResumeCapture, "stop_capture": value.Controls.StopCapture, "complete_session": value.Controls.CompleteSession, "create_session_notes": value.CreateSessionNotes.Allowed, "refresh_artifacts": true, "inspect_artifacts": true}, "control_reasons": value.ControlReasons, "capture": captureInspectionDTO(value.Capture), "transcription": transcriptionInspectionDTO(value.Transcription), "artifacts": value.Artifacts, "artifact_revision": value.ArtifactRevision, "artifact_issues": value.ArtifactIssues, "notes": notes}
+	reasons := map[string]string{}
+	for key, reason := range value.ControlReasons {
+		reasons[key] = reason
+	}
+	controls := map[string]bool{"start_session": value.Controls.StartSession, "start_capture": value.Controls.StartCapture, "pause_capture": value.Controls.PauseCapture, "resume_capture": value.Controls.ResumeCapture, "stop_capture": value.Controls.StopCapture, "complete_session": value.Controls.CompleteSession, "create_session_notes": value.CreateSessionNotes.Allowed, "refresh_artifacts": true, "inspect_artifacts": true}
+	return map[string]any{"course": map[string]any{"id": value.Course.ID, "name": value.Course.Name, "slug": value.Course.Slug}, "module": map[string]any{"id": value.Module.ID, "course_id": value.Module.CourseID, "name": value.Module.Name, "slug": value.Module.Slug, "number": value.Module.Number, "sessions": value.Module.Sessions}, "session": session, "controls": controls, "control_reasons": reasons, "capture": captureInspectionDTO(value.Capture), "transcription": transcriptionInspectionDTO(value.Transcription), "artifacts": value.Artifacts, "artifact_revision": value.ArtifactRevision, "artifact_issues": value.ArtifactIssues, "notes": notes}
 }
 
 func sessionScanIssueDTOs(values []application.SessionScanIssue) []sessionScanIssueDTO {
@@ -210,6 +215,9 @@ func executeTranscriptionDTO(v application.ExecuteTranscriptionResult) map[strin
 }
 func artifactMutationDTO(v application.StudyArtifactMutationResult) map[string]any {
 	return map[string]any{"artifact": v.Artifact, "revision": v.Revision, "durability_warning": v.DurabilityWarning}
+}
+func sessionNotesDTO(v application.SessionNotesResult) map[string]any {
+	return map[string]any{"artifact": v.Artifact, "content": v.Content, "revision": v.Revision, "durability_warning": v.DurabilityWarning}
 }
 func dashboardDTO(v application.DashboardResult) map[string]any {
 	unfinished := make([]sessionSummaryDTO, 0, len(v.UnfinishedSessions))

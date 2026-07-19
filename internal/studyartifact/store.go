@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 )
 
@@ -87,6 +88,110 @@ func (s *Store) CreateSessionNotes(ctx context.Context, sessionID, title string,
 		return Record{}, Index{}, ErrNotFound
 	}
 	return s.createNotes(ctx, title, expected, &sc)
+}
+
+func (s *Store) LoadSessionNotes(ctx context.Context, sessionID string) (NoteDocument, error) {
+	if err := ctx.Err(); err != nil {
+		return NoteDocument{}, err
+	}
+	if _, ok := s.session(sessionID); !ok {
+		return NoteDocument{}, ErrNotFound
+	}
+	index, err := s.Load(ctx)
+	if err != nil {
+		return NoteDocument{}, err
+	}
+	record, err := sessionNoteRecord(index, sessionID)
+	if err != nil {
+		return NoteDocument{}, err
+	}
+	target, err := s.safeMutableNotePath(record)
+	if err != nil {
+		return NoteDocument{}, err
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		return NoteDocument{}, err
+	}
+	if len(data) > MaxNoteBytes || !utf8Valid(string(data)) || strings.ContainsRune(string(data), '\x00') {
+		return NoteDocument{}, ErrInvalid
+	}
+	return NoteDocument{Artifact: record.Clone(), Content: string(data), Revision: index.Revision}, nil
+}
+
+func (s *Store) UpdateSessionNotes(ctx context.Context, sessionID, content string, expected uint64) (Record, Index, error) {
+	if err := ctx.Err(); err != nil {
+		return Record{}, Index{}, err
+	}
+	if len(content) > MaxNoteBytes || !utf8Valid(content) || strings.ContainsRune(content, '\x00') {
+		return Record{}, Index{}, ErrInvalid
+	}
+	if _, ok := s.session(sessionID); !ok {
+		return Record{}, Index{}, ErrNotFound
+	}
+	index, err := s.Load(ctx)
+	if err != nil {
+		return Record{}, Index{}, err
+	}
+	if index.Revision != expected {
+		return Record{}, index, ErrRevisionConflict
+	}
+	record, err := sessionNoteRecord(index, sessionID)
+	if err != nil {
+		return Record{}, index, err
+	}
+	target, err := s.safeMutableNotePath(record)
+	if err != nil {
+		return Record{}, index, err
+	}
+	if err = replaceAtomic(target, []byte(content), 0o640); err != nil {
+		return Record{}, index, err
+	}
+	updated := record.Clone()
+	updated.UpdatedAt = s.clock().UTC()
+	updated.SHA256 = fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+	updated.SizeBytes = int64(len(content))
+	next := index.Clone()
+	next.Revision++
+	next.UpdatedAt = updated.UpdatedAt
+	for i := range next.Artifacts {
+		if next.Artifacts[i].ID == updated.ID {
+			next.Artifacts[i] = updated.Clone()
+			break
+		}
+	}
+	if err = s.save(ctx, index.Revision, next); err != nil {
+		return updated, index, fmt.Errorf("%w: %v", ErrPersistenceUncertain, err)
+	}
+	return updated, next, nil
+}
+
+func sessionNoteRecord(index Index, sessionID string) (Record, error) {
+	for _, record := range index.Artifacts {
+		if record.Type == TypeNote && record.Scope.Kind == ScopeSession && record.Scope.SessionID == sessionID {
+			return record.Clone(), nil
+		}
+	}
+	return Record{}, ErrNotFound
+}
+
+func (s *Store) safeMutableNotePath(record Record) (string, error) {
+	if record.Type != TypeNote || !record.Mutable || !safeRelative(record.RelativePath) {
+		return "", ErrInvalid
+	}
+	target := filepath.Join(s.context.ModuleRoot, filepath.FromSlash(record.RelativePath))
+	if !within(s.context.ModuleRoot, target) {
+		return "", ErrInvalid
+	}
+	info, err := os.Lstat(target)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleLinks(info) {
+		return "", ErrInvalid
+	}
+	reparse, err := platformfs.PathHasReparsePoint(target)
+	if err != nil || reparse {
+		return "", ErrInvalid
+	}
+	return target, nil
 }
 func (s *Store) createNotes(ctx context.Context, title string, expected uint64, session *SessionContext) (Record, Index, error) {
 	if !safeText(title, 160) {
@@ -678,7 +783,7 @@ func replaceAtomic(path string, data []byte, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	if err = os.Rename(name, path); err != nil {
+	if err = platformfs.Replace(name, path); err != nil {
 		return err
 	}
 	if err = syncDirectory(filepath.Dir(path)); err != nil {
@@ -753,12 +858,7 @@ func copyExclusiveAtomic(source, dest string, mode fs.FileMode) error {
 }
 
 func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer directory.Close()
-	return directory.Sync()
+	return platformfs.SyncDir(path)
 }
 func safeAssetName(name string) (string, error) {
 	if name == "" || name == "." || name == ".." || !utf8Valid(name) {

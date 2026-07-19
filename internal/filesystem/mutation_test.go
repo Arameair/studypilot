@@ -177,7 +177,7 @@ func TestReadManagedFileRejectsUnsafeAndInvalidTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(real, target); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, err := executor.Read(context.Background(), authority, target); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("symlink: %v", err)
@@ -207,7 +207,7 @@ func TestAuthorityRejectsSymlinkedParent(t *testing.T) {
 	}
 	link := filepath.Join(fixture.paths.Private, "01 Courses", "linked-course")
 	if err := os.Symlink(real, link); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, err := NewCourseMutationAuthority(fixture.paths, link); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("got %v", err)

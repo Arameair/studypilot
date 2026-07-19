@@ -63,6 +63,33 @@ func TestGUIReadModelsUseAuthoritativePathFreeState(t *testing.T) {
 	}
 }
 
+func TestSessionWorkspaceBecomesCaptureEligibleAfterStart(t *testing.T) {
+	fixture := newLifecycleFixture(t)
+	created := fixture.create(t, "Recordable", "recordable")
+	planned, err := fixture.service.GetSessionWorkspace(context.Background(), SessionWorkspaceRequest{
+		Root: fixture.root, CourseRef: created.CourseID, ModuleRef: created.ModuleID, SessionRef: created.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if planned.Controls.StartCapture || planned.ControlReasons["start_capture"] == "" {
+		t.Fatalf("planned controls=%+v reasons=%+v", planned.Controls, planned.ControlReasons)
+	}
+	started, err := fixture.service.StartSession(context.Background(), updateRequest(fixture, created))
+	if err != nil {
+		t.Fatal(err)
+	}
+	active, err := fixture.service.GetSessionWorkspace(context.Background(), SessionWorkspaceRequest{
+		Root: fixture.root, CourseRef: started.CourseID, ModuleRef: started.ModuleID, SessionRef: started.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !active.Controls.StartCapture || active.Session.Snapshot.CaptureStatus != "ready" || active.ControlReasons["start_capture"] != "" {
+		t.Fatalf("active controls=%+v session=%+v reasons=%+v", active.Controls, active.Session.Snapshot, active.ControlReasons)
+	}
+}
+
 func TestConcurrentDashboardReads(t *testing.T) {
 	service := newTestService(t, fixedClock(fixedDate), sequentialID())
 	root := testRoot(t)

@@ -292,6 +292,9 @@ func TestInitializationRejectsSymlink(t *testing.T) {
 func TestDefaultRealInitializationUsesControlledHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
 	root := filepath.Join(home, "Documents", "StudyPilot")
 	code, _, stderr := runForTest([]string{"init"})
 	if code != 0 {

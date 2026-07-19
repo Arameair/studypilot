@@ -1,11 +1,19 @@
-//go:build !unix
+//go:build !unix && !windows
 
 package backend
 
-import "os/exec"
+import (
+	"io"
+	"os/exec"
+)
 
-// terminateProcess falls back to Kill on platforms without POSIX signals.
-func terminateProcess(cmd *exec.Cmd) error {
+func configureRecorderProcess(cmd *exec.Cmd) (io.WriteCloser, error) {
+	cmd.Stdin = nil
+	return nil, nil
+}
+
+// requestRecorderStop falls back to Kill on unsupported platforms.
+func requestRecorderStop(cmd *exec.Cmd, _ io.WriteCloser) error {
 	if cmd.Process == nil {
 		return nil
 	}

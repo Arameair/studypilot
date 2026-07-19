@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"os/exec"
 	"sync"
@@ -99,11 +100,17 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 		return nil, newError(ErrorCancelled, "process", "recording start was cancelled", err)
 	}
 	cmd := exec.Command(spec.Executable, spec.Args...)
-	cmd.Stdin = nil
 	cmd.Stdout = nil
 	stderr := &boundedBuffer{limit: maxStderrBytes}
 	cmd.Stderr = stderr
+	control, err := configureRecorderProcess(cmd)
+	if err != nil {
+		return nil, newError(ErrorInternal, "process", "configure recorder process", err)
+	}
 	if err := cmd.Start(); err != nil {
+		if control != nil {
+			_ = control.Close()
+		}
 		if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 			return nil, newError(ErrorExecutableMissing, "process", "recorder executable not found", err)
 		}
@@ -116,7 +123,7 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 	if stopTimeout <= 0 {
 		stopTimeout = 2 * time.Second
 	}
-	handle := &execHandle{cmd: cmd, stderr: stderr, done: make(chan struct{}), stopTimeout: stopTimeout}
+	handle := &execHandle{cmd: cmd, control: control, stderr: stderr, done: make(chan struct{}), stopTimeout: stopTimeout}
 	go func() {
 		handle.waitErr = cmd.Wait()
 		close(handle.done)
@@ -134,6 +141,7 @@ func (execRunner) Start(ctx context.Context, spec ProcessSpec) (ProcessHandle, e
 
 type execHandle struct {
 	cmd         *exec.Cmd
+	control     io.WriteCloser
 	stderr      *boundedBuffer
 	done        chan struct{}
 	once        sync.Once
@@ -148,7 +156,7 @@ func (h *execHandle) Terminate(ctx context.Context) error {
 	}
 	h.once.Do(func() {
 		h.expected.Store(true)
-		_ = terminateProcess(h.cmd)
+		_ = requestRecorderStop(h.cmd, h.control)
 	})
 	timer := time.NewTimer(h.stopTimeout)
 	defer timer.Stop()
@@ -174,6 +182,9 @@ func (h *execHandle) Terminate(ctx context.Context) error {
 
 func (h *execHandle) Kill() error {
 	h.expected.Store(true)
+	if h.control != nil {
+		_ = h.control.Close()
+	}
 	_ = h.cmd.Process.Kill()
 	<-h.done
 	return h.exitError()

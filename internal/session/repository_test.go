@@ -188,7 +188,7 @@ func TestLoadRejectsMissingMalformedMismatchedAndSymlinkedState(t *testing.T) {
 			_ = os.WriteFile(target, []byte("{}"), 0o640)
 			_ = os.Remove(filepath.Join(r.Root, runtimeStateName))
 			if err := os.Symlink(target, filepath.Join(r.Root, runtimeStateName)); err != nil {
-				t.Fatal(err)
+				t.Skipf("symlink unavailable: %v", err)
 			}
 		}, filesystem.ErrUnsafePath},
 	}

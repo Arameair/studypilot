@@ -236,7 +236,21 @@ func (s *Service) InspectCapture(ctx context.Context, req InspectCaptureRequest)
 		for _, item := range storage.Partial {
 			result.Partial = append(result.Partial, CaptureSegmentResult{Number: item.Number, Status: studyruntime.SegmentStatusRecording, RelativePath: item.AudioFile})
 		}
+		expectedActiveEvidence := false
+		if record.Runtime.Snapshot.CaptureStatus == studyruntime.CaptureStatusRecording &&
+			result.Active != nil &&
+			result.Active.Number == record.Runtime.Snapshot.CurrentSegment {
+			for _, item := range storage.Partial {
+				if item.Number == result.Active.Number {
+					expectedActiveEvidence = storage.HasOwner
+					break
+				}
+			}
+		}
 		for _, issue := range storage.Issues {
+			if expectedActiveEvidence && (issue.Code == "active_ownership" || issue.Code == "partial_audio") {
+				continue
+			}
 			result.Issues = append(result.Issues, CaptureIssue{Code: issue.Code, Severity: issue.Severity, Message: issue.Message, RelativeResource: issue.RelativeResource, Recoverable: issue.Recoverable})
 		}
 		result.Recoverable = len(result.Issues) > 0

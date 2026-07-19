@@ -21,7 +21,7 @@ import (
 const (
 	DefaultAddress = "127.0.0.1:8765"
 	APIVersion     = "v1"
-	maxRequestBody = 16 << 10
+	maxRequestBody = 2 << 20
 )
 
 type Application interface {
@@ -46,6 +46,8 @@ type Application interface {
 	RefreshStudyArtifactIndex(context.Context, application.RefreshStudyArtifactIndexRequest) (application.StudyArtifactRefreshResult, error)
 	CreateModuleNotes(context.Context, application.CreateModuleNotesRequest) (application.StudyArtifactMutationResult, error)
 	CreateSessionNotes(context.Context, application.CreateSessionNotesRequest) (application.StudyArtifactMutationResult, error)
+	ReadSessionNotes(context.Context, application.ReadSessionNotesRequest) (application.SessionNotesResult, error)
+	UpdateSessionNotes(context.Context, application.UpdateSessionNotesRequest) (application.SessionNotesResult, error)
 }
 
 type Config struct {
@@ -67,7 +69,7 @@ func New(applicationService Application, config Config) (http.Handler, error) {
 	if config.CaptureBackend != "" && config.CaptureBackend != "synthetic" && config.CaptureBackend != "local" {
 		return nil, errors.New("httpapi: unsupported capture backend")
 	}
-	if config.CaptureDriver != "" && config.CaptureDriver != "synthetic" && config.CaptureDriver != "pulse" && config.CaptureDriver != "alsa" {
+	if config.CaptureDriver != "" && config.CaptureDriver != "synthetic" && config.CaptureDriver != "pulse" && config.CaptureDriver != "alsa" && config.CaptureDriver != "dshow" {
 		return nil, errors.New("httpapi: unsupported capture driver")
 	}
 	if config.CaptureAvailable && config.CaptureBackend == "" {

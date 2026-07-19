@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,6 +105,12 @@ func (f *fakeApplication) CreateModuleNotes(context.Context, application.CreateM
 func (f *fakeApplication) CreateSessionNotes(context.Context, application.CreateSessionNotesRequest) (application.StudyArtifactMutationResult, error) {
 	return application.StudyArtifactMutationResult{Revision: 2}, nil
 }
+func (f *fakeApplication) ReadSessionNotes(context.Context, application.ReadSessionNotesRequest) (application.SessionNotesResult, error) {
+	return application.SessionNotesResult{Content: "# Session Notes\n", Revision: 2}, nil
+}
+func (f *fakeApplication) UpdateSessionNotes(_ context.Context, request application.UpdateSessionNotesRequest) (application.SessionNotesResult, error) {
+	return application.SessionNotesResult{Content: request.Content, Revision: request.ExpectedArtifactRevision + 1}, nil
+}
 
 func newTestHandler(t *testing.T, service Application) http.Handler {
 	t.Helper()
@@ -180,6 +187,16 @@ func TestRequestHostValidationPrecedesOriginValidation(t *testing.T) {
 			}
 		})
 	}
+	invalidUTF8 := append([]byte(`{"content":"`), 0xff)
+	invalidUTF8 = append(invalidUTF8, []byte(`","expected_artifact_revision":1}`)...)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/sessions/course-1/module-1/session-1/notes/session", bytes.NewReader(invalidUTF8))
+	req.Host = "127.0.0.1:8765"
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("invalid UTF-8 status=%d body=%s", recorder.Code, recorder.Body)
+	}
 }
 
 func TestFrontendIsEmbeddedLocalAndPredictable(t *testing.T) {
@@ -188,7 +205,7 @@ func TestFrontendIsEmbeddedLocalAndPredictable(t *testing.T) {
 	script := request(t, handler, http.MethodGet, "/app.js", "")
 	missing := request(t, handler, http.MethodGet, "/unknown", "")
 	apiMissing := request(t, handler, http.MethodGet, "/api/v1/unknown", "")
-	for _, required := range []string{"Choose a course", "New session title", "Start Recording", "Create Session Notes", "Refresh Artifact Index", "confirmation-dialog", "role=\"alert\"", "session-loading"} {
+	for _, required := range []string{"Choose a course", "New session title", "Start Recording", "Create Session Notes", "Load/Reload Notes", "Save Notes", "session-notes-content", "Refresh Artifact Index", "confirmation-dialog", "role=\"alert\"", "session-loading"} {
 		if index.Code != 200 || !strings.Contains(index.Body.String(), required) {
 			t.Fatalf("index missing %q", required)
 		}
@@ -199,7 +216,7 @@ func TestFrontendIsEmbeddedLocalAndPredictable(t *testing.T) {
 	if script.Code != 200 || strings.Contains(script.Body.String(), "https://") || strings.Contains(script.Body.String(), "http://") || strings.Contains(index.Body.String(), "cdn") {
 		t.Fatal("frontend contains external resource")
 	}
-	for _, required := range []string{"status === 409", "showModal", "beforeunload", "busy.has", "loadSession", "createSession", "refreshArtifacts"} {
+	for _, required := range []string{"status === 409", "showModal", "beforeunload", "busy.has", "loadSessionNotes", "saveSessionNotes", "TextEncoder", "createSession", "refreshArtifacts"} {
 		if !strings.Contains(script.Body.String(), required) {
 			t.Errorf("frontend behavior missing %q", required)
 		}
@@ -224,7 +241,7 @@ func TestAPIRouteCoverage(t *testing.T) {
 		{"GET", "/api/v1/courses/course-1/modules/module-1/workspace", "", 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/sessions", `{"title":"Created session"}`, 201},
 		{"POST", "/api/v1/sessions/course-1/module-1/session-1/complete", `{"expected_revision":1}`, 200}, {"GET", "/api/v1/sessions/course-1/module-1/session-1/capture", "", 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/start", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/pause", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/resume", `{"expected_revision":1}`, 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/capture/stop", `{"expected_revision":1}`, 200},
 		{"GET", "/api/v1/sessions/course-1/module-1/session-1/transcription", "", 200}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/transcription/execute", `{"segment_id":"segment-1","backend":"synthetic","model":"synthetic/deterministic","language":"en","max_attempts":3,"expected_revision":1}`, 200},
-		{"GET", "/api/v1/courses/course-1/modules/module-1/artifacts", "", 200}, {"GET", "/api/v1/courses/course-1/modules/module-1/artifacts/inspect", "", 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/artifacts/refresh", `{"expected_artifact_revision":1}`, 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/notes/module", `{"title":"Module Notes","expected_artifact_revision":1}`, 201}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/notes/session", `{"title":"Session Notes","expected_artifact_revision":1}`, 201},
+		{"GET", "/api/v1/courses/course-1/modules/module-1/artifacts", "", 200}, {"GET", "/api/v1/courses/course-1/modules/module-1/artifacts/inspect", "", 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/artifacts/refresh", `{"expected_artifact_revision":1}`, 200}, {"POST", "/api/v1/courses/course-1/modules/module-1/notes/module", `{"title":"Module Notes","expected_artifact_revision":1}`, 201}, {"POST", "/api/v1/sessions/course-1/module-1/session-1/notes/session", `{"title":"Session Notes","expected_artifact_revision":1}`, 201}, {"GET", "/api/v1/sessions/course-1/module-1/session-1/notes/session", "", 200}, {"PUT", "/api/v1/sessions/course-1/module-1/session-1/notes/session", `{"content":"# Unicode café\n\u003cscript\u003einert\u003c/script\u003e","expected_artifact_revision":2}`, 200},
 	}
 	for _, test := range tests {
 		t.Run(test.method+test.path, func(t *testing.T) {

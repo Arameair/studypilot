@@ -14,6 +14,8 @@ type StudyArtifactStore interface {
 	Load(context.Context) (studyartifact.Index, error)
 	CreateModuleNotes(context.Context, string, uint64) (studyartifact.Record, studyartifact.Index, error)
 	CreateSessionNotes(context.Context, string, string, uint64) (studyartifact.Record, studyartifact.Index, error)
+	LoadSessionNotes(context.Context, string) (studyartifact.NoteDocument, error)
+	UpdateSessionNotes(context.Context, string, string, uint64) (studyartifact.Record, studyartifact.Index, error)
 	RegisterModuleAsset(context.Context, string, string, string, uint64) (studyartifact.Record, studyartifact.Index, error)
 	RegisterSessionAsset(context.Context, string, string, string, string, uint64) (studyartifact.Record, studyartifact.Index, error)
 	Refresh(context.Context, uint64) (studyartifact.Index, []studyartifact.Issue, error)
@@ -108,6 +110,43 @@ func (s *Service) CreateSessionNotes(ctx context.Context, req CreateSessionNotes
 	}
 	record, index, err := store.CreateSessionNotes(ctx, id, req.Title, req.ExpectedArtifactRevision)
 	return artifactMutationResult("CreateSessionNotes", record, index, err)
+}
+
+func (s *Service) ReadSessionNotes(ctx context.Context, req ReadSessionNotesRequest) (SessionNotesResult, error) {
+	ctx = nonNilContext(ctx)
+	id, err := s.artifactSessionID(ctx, req.StudyArtifactModuleRequest, req.SessionRef)
+	if err != nil {
+		return SessionNotesResult{}, newError("ReadSessionNotes", "resolve session", err)
+	}
+	store, err := s.artifactStore(ctx, req.StudyArtifactModuleRequest)
+	if err != nil {
+		return SessionNotesResult{}, err
+	}
+	note, err := store.LoadSessionNotes(ctx, id)
+	if err != nil {
+		return SessionNotesResult{}, newError("ReadSessionNotes", "read session notes", err)
+	}
+	return SessionNotesResult{Artifact: note.Artifact.Clone(), Content: note.Content, Revision: note.Revision}, nil
+}
+
+func (s *Service) UpdateSessionNotes(ctx context.Context, req UpdateSessionNotesRequest) (SessionNotesResult, error) {
+	s.studyArtifactMutationMu.Lock()
+	defer s.studyArtifactMutationMu.Unlock()
+	ctx = nonNilContext(ctx)
+	id, err := s.artifactSessionID(ctx, req.StudyArtifactModuleRequest, req.SessionRef)
+	if err != nil {
+		return SessionNotesResult{}, newError("UpdateSessionNotes", "resolve session", err)
+	}
+	store, err := s.artifactStore(ctx, req.StudyArtifactModuleRequest)
+	if err != nil {
+		return SessionNotesResult{}, err
+	}
+	record, index, err := store.UpdateSessionNotes(ctx, id, req.Content, req.ExpectedArtifactRevision)
+	result := SessionNotesResult{Artifact: record.Clone(), Content: req.Content, Revision: index.Revision, DurabilityWarning: errors.Is(err, studyartifact.ErrPersistenceUncertain)}
+	if err != nil {
+		return result, newError("UpdateSessionNotes", "update session notes", err)
+	}
+	return result, nil
 }
 func (s *Service) RegisterModuleAsset(ctx context.Context, req RegisterModuleAssetRequest) (StudyArtifactMutationResult, error) {
 	s.studyArtifactMutationMu.Lock()

@@ -1,8 +1,6 @@
 package backend
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -17,7 +15,7 @@ const (
 	defaultLocalStartupGrace = 200 * time.Millisecond
 )
 
-// LocalConfig describes the narrow Linux-first ffmpeg capture boundary.
+// LocalConfig describes the narrow platform-aware ffmpeg capture boundary.
 // Executable and Device are private operational inputs and are never copied to
 // public capabilities or manifests.
 type LocalConfig struct {
@@ -64,7 +62,7 @@ func NewLocalBackend(cfg LocalConfig) (Backend, error) {
 			startupGrace = defaultLocalStartupGrace
 		}
 		eng = &processEngine{runner: runner, label: "local", executable: cfg.Executable, stopTimeout: cfg.StopTimeout, startupGrace: startupGrace, buildArgs: func(outputPath string, format AudioFormat) []string {
-			return []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-f", cfg.Driver, "-i", cfg.Device, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", "-f", "wav", "-y", outputPath}
+			return localFFmpegArgs(cfg.Driver, cfg.Device, outputPath)
 		}}
 	}
 	recorder := newRecorder(cfg.Paths, eng, capabilities)
@@ -87,15 +85,11 @@ func localConfigurationIssues(cfg LocalConfig) []capture.CapabilityIssue {
 	}
 	if strings.TrimSpace(cfg.Executable) == "" {
 		add("capture_not_configured", "a local capture executable is not configured")
-	} else if !filepath.IsAbs(cfg.Executable) || filepath.Base(cfg.Executable) != "ffmpeg" {
-		add("capture_executable_unsafe", "the configured capture executable is not an allowed ffmpeg file")
-	} else if info, err := os.Lstat(cfg.Executable); err != nil {
-		add("capture_executable_missing", "the configured capture executable is unavailable")
-	} else if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o111 == 0 || hasMultipleHardLinks(info) {
-		add("capture_executable_unsafe", "the configured capture executable is not a safe regular executable")
+	} else if code, message := localExecutableIssue(cfg.Executable); code != "" {
+		add(code, message)
 	}
-	if cfg.Driver != "pulse" && cfg.Driver != "alsa" {
-		add("capture_driver_unsupported", "the configured capture driver is unsupported")
+	if code, message := localDriverIssue(cfg.Driver); code != "" {
+		add(code, message)
 	}
 	if !validLocalDevice(cfg.Device) {
 		add("capture_device_missing", "a safe local capture device identifier is required")
@@ -111,5 +105,5 @@ func LocalConfigurationIssues(executable, driver, device string) []capture.Capab
 }
 
 func validLocalDevice(value string) bool {
-	return value != "" && len(value) <= maxLocalDeviceBytes && utf8.ValidString(value) && !strings.ContainsAny(value, "\x00\r\n")
+	return value != "" && len(value) <= maxLocalDeviceBytes && utf8.ValidString(value) && !strings.ContainsAny(value, "\x00\r\n") && validPlatformDevice(value)
 }

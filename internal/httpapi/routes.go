@@ -17,6 +17,10 @@ type noteRequest struct {
 	Title            string `json:"title"`
 	ExpectedRevision uint64 `json:"expected_artifact_revision"`
 }
+type noteUpdateRequest struct {
+	Content          string `json:"content"`
+	ExpectedRevision uint64 `json:"expected_artifact_revision"`
+}
 type createSessionRequest struct {
 	Title string `json:"title"`
 }
@@ -164,6 +168,14 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 			writeApplicationError(w, err)
 			return
 		}
+		if a.config.CaptureBackend != "" {
+			inspection, inspectErr := a.application.InspectCapture(r.Context(), application.InspectCaptureRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, Backend: a.config.CaptureBackend})
+			if inspectErr != nil {
+				writeApplicationError(w, inspectErr)
+				return
+			}
+			result.Capture = inspection
+		}
 		response := workspaceDTO(result)
 		captureStatus := "unavailable"
 		if a.config.CaptureAvailable {
@@ -180,6 +192,28 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 			"device":    a.config.CaptureDevice,
 			"status":    captureStatus,
 			"issues":    captureIssues,
+		}
+		controls := response["controls"].(map[string]bool)
+		reasons := response["control_reasons"].(map[string]string)
+		startAllowed := controls["start_capture"] && a.config.CaptureAvailable && len(result.Capture.Issues) == 0
+		controls["start_capture"] = startAllowed
+		if !startAllowed {
+			switch {
+			case result.Session.Snapshot.SessionStatus == "completed" || result.Session.Snapshot.SessionStatus == "abandoned":
+				reasons["start_capture"] = "This session is closed and cannot record."
+			case result.Session.Snapshot.SessionStatus != "active" && result.Session.Snapshot.SessionStatus != "interrupted":
+				reasons["start_capture"] = "Start the session before recording."
+			case !a.config.CaptureAvailable:
+				reasons["start_capture"] = "Local capture is not configured."
+			case len(result.Capture.Issues) > 0:
+				reasons["start_capture"] = "Inspect and resolve capture recovery before recording."
+			case result.Session.Snapshot.CaptureStatus == "recording":
+				reasons["start_capture"] = "Recording is already active."
+			case result.Session.Snapshot.CaptureStatus == "paused":
+				reasons["start_capture"] = "Resume or stop the paused recording."
+			}
+		} else {
+			delete(reasons, "start_capture")
 		}
 		available := a.config.TranscriptionBackend != "" && a.config.TranscriptionModel != ""
 		status, issue := "ready", ""
@@ -226,7 +260,7 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 		return
 	}
 	if len(parts) == 6 && parts[4] == "notes" && parts[5] == "session" {
-		a.createSessionNotes(w, r, course, module, session)
+		a.sessionNotes(w, r, course, module, session)
 		return
 	}
 	writeError(w, http.StatusNotFound, "not_found", "The requested API endpoint does not exist.", false)
@@ -386,18 +420,44 @@ func (a *api) createModuleNotes(w http.ResponseWriter, r *http.Request, course, 
 	}
 	writeJSON(w, http.StatusCreated, artifactMutationDTO(result))
 }
-func (a *api) createSessionNotes(w http.ResponseWriter, r *http.Request, course, module, session string) {
-	if !requireMethod(w, r, http.MethodPost) {
-		return
+func (a *api) sessionNotes(w http.ResponseWriter, r *http.Request, course, module, session string) {
+	base := application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}
+	switch r.Method {
+	case http.MethodPost:
+		var request noteRequest
+		if !decodeJSON(w, r, &request) {
+			return
+		}
+		result, err := a.application.CreateSessionNotes(r.Context(), application.CreateSessionNotesRequest{StudyArtifactModuleRequest: base, SessionRef: session, Title: request.Title, ExpectedArtifactRevision: request.ExpectedRevision})
+		if err != nil {
+			writeApplicationError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, artifactMutationDTO(result))
+	case http.MethodGet:
+		result, err := a.application.ReadSessionNotes(r.Context(), application.ReadSessionNotesRequest{StudyArtifactModuleRequest: base, SessionRef: session})
+		if err != nil {
+			writeApplicationError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, sessionNotesDTO(result))
+	case http.MethodPut:
+		var request noteUpdateRequest
+		if !decodeJSON(w, r, &request) {
+			return
+		}
+		if request.ExpectedRevision == 0 {
+			writeError(w, http.StatusBadRequest, "invalid_input", "A positive expected_artifact_revision is required.", false)
+			return
+		}
+		result, err := a.application.UpdateSessionNotes(r.Context(), application.UpdateSessionNotesRequest{StudyArtifactModuleRequest: base, SessionRef: session, Content: request.Content, ExpectedArtifactRevision: request.ExpectedRevision})
+		if err != nil {
+			writeApplicationError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, sessionNotesDTO(result))
+	default:
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost+", "+http.MethodPut)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "The HTTP method is not allowed for this endpoint.", false)
 	}
-	var request noteRequest
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	result, err := a.application.CreateSessionNotes(r.Context(), application.CreateSessionNotesRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}, SessionRef: session, Title: request.Title, ExpectedArtifactRevision: request.ExpectedRevision})
-	if err != nil {
-		writeApplicationError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, artifactMutationDTO(result))
 }

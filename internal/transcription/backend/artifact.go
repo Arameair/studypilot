@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/transcription"
 )
 
@@ -77,17 +78,9 @@ func (osArtifactOps) WriteExclusive(path string, data []byte) error {
 	}
 	return file.Close()
 }
-func (osArtifactOps) Rename(from, to string) error { return os.Rename(from, to) }
+func (osArtifactOps) Rename(from, to string) error { return platformfs.Replace(from, to) }
 func (osArtifactOps) SyncDir(dir string) error {
-	file, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if err = file.Sync(); err != nil && !errors.Is(err, os.ErrInvalid) {
-		return err
-	}
-	return nil
+	return platformfs.SyncDir(dir)
 }
 
 type ArtifactStore struct {

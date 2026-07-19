@@ -129,6 +129,16 @@ type CreateSessionNotesRequest struct {
 	SessionRef, Title        string
 	ExpectedArtifactRevision uint64
 }
+type ReadSessionNotesRequest struct {
+	StudyArtifactModuleRequest
+	SessionRef string
+}
+type UpdateSessionNotesRequest struct {
+	StudyArtifactModuleRequest
+	SessionRef               string
+	Content                  string
+	ExpectedArtifactRevision uint64
+}
 type RegisterModuleAssetRequest struct {
 	StudyArtifactModuleRequest
 	SourcePath, Title, Category string

@@ -2,12 +2,16 @@ package workspace
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestDefaultPaths(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
 
 	paths, err := DefaultPaths()
 	if err != nil {
@@ -28,6 +32,10 @@ func TestDefaultPaths(t *testing.T) {
 func TestPathsFromRoot(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
+	absolute := filepath.Join(t.TempDir(), "studypilot")
 
 	tests := []struct {
 		name     string
@@ -35,7 +43,7 @@ func TestPathsFromRoot(t *testing.T) {
 		wantRoot string
 		wantErr  bool
 	}{
-		{name: "absolute", root: "/tmp/studypilot", wantRoot: "/tmp/studypilot"},
+		{name: "absolute", root: absolute, wantRoot: absolute},
 		{name: "home relative", root: "~/Documents/StudyPilot", wantRoot: filepath.Join(home, "Documents", "StudyPilot")},
 		{name: "relative", root: filepath.Join("relative", "path")},
 		{name: "empty", root: "", wantErr: true},
@@ -76,7 +84,7 @@ func TestPathsFromRoot(t *testing.T) {
 }
 
 func TestPathsValidateRejectsInvalidLayouts(t *testing.T) {
-	root := filepath.Join(string(filepath.Separator), "workspace")
+	root := filepath.Join(t.TempDir(), "workspace")
 	private := filepath.Join(root, privateVaultName)
 	portfolio := filepath.Join(root, portfolioName)
 
@@ -91,8 +99,8 @@ func TestPathsValidateRejectsInvalidLayouts(t *testing.T) {
 		{name: "relative private", paths: Paths{Root: root, Private: privateVaultName, Portfolio: portfolio}},
 		{name: "relative portfolio", paths: Paths{Root: root, Private: private, Portfolio: portfolioName}},
 		{name: "identical vaults", paths: Paths{Root: root, Private: private, Portfolio: private}},
-		{name: "private outside root", paths: Paths{Root: root, Private: filepath.Join(string(filepath.Separator), "private"), Portfolio: portfolio}},
-		{name: "portfolio outside root", paths: Paths{Root: root, Private: private, Portfolio: filepath.Join(string(filepath.Separator), "portfolio")}},
+		{name: "private outside root", paths: Paths{Root: root, Private: filepath.Join(t.TempDir(), "private"), Portfolio: portfolio}},
+		{name: "portfolio outside root", paths: Paths{Root: root, Private: private, Portfolio: filepath.Join(t.TempDir(), "portfolio")}},
 		{name: "private inside portfolio", paths: Paths{Root: root, Private: filepath.Join(portfolio, "private"), Portfolio: portfolio}},
 		{name: "portfolio inside private", paths: Paths{Root: root, Private: private, Portfolio: filepath.Join(private, "portfolio")}},
 		{name: "root equals private", paths: Paths{Root: root, Private: root, Portfolio: portfolio}},
@@ -110,7 +118,7 @@ func TestPathsValidateRejectsInvalidLayouts(t *testing.T) {
 }
 
 func TestPathsValidateAcceptsSeparatedVaults(t *testing.T) {
-	root := filepath.Join(string(filepath.Separator), "workspace")
+	root := filepath.Join(t.TempDir(), "workspace")
 	paths := Paths{
 		Root:      root,
 		Private:   filepath.Join(root, privateVaultName),

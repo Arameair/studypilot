@@ -60,7 +60,7 @@ func TestVaultContractRejectsMalformedContracts(t *testing.T) {
 	}{
 		{name: "unknown kind", contract: VaultContract{Kind: "unknown", Directories: []string{".obsidian"}}},
 		{name: "empty directory", contract: withDirectory(validPrivate, "")},
-		{name: "absolute directory", contract: withDirectory(validPrivate, string(filepath.Separator)+"tmp")},
+		{name: "absolute directory", contract: withDirectory(validPrivate, filepath.Join(t.TempDir(), "tmp"))},
 		{name: "parent traversal directory", contract: withDirectory(validPrivate, "notes/../private")},
 		{name: "duplicate directory", contract: withDirectory(validPrivate, validPrivate.Directories[0])},
 		{name: "empty file", contract: withFile(validPrivate, RequiredFile{})},

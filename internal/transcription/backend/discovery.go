@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Arameair/studypilot/internal/platformfs"
 )
 
 // LocalDiscovery conservatively verifies configured local components. It does
@@ -20,15 +22,22 @@ func (d LocalDiscovery) Python(ctx context.Context, executable string) bool {
 	if ctx.Err() != nil || d.Runner == nil {
 		return false
 	}
-	_, err := d.Runner.Lookup(executable)
-	return err == nil
+	resolved, err := d.Runner.Lookup(executable)
+	if err != nil {
+		return false
+	}
+	return validDiscoveredExecutable(resolved)
 }
 func (d LocalDiscovery) Worker(ctx context.Context, worker string) bool {
 	if ctx.Err() != nil || !filepath.IsAbs(worker) {
 		return false
 	}
 	info, err := os.Lstat(worker)
-	return err == nil && info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return false
+	}
+	reparse, err := platformfs.PathHasReparsePoint(worker)
+	return err == nil && !reparse
 }
 func (d LocalDiscovery) Package(ctx context.Context, name string) bool {
 	if ctx.Err() != nil || d.Runner == nil || name != "faster-whisper" {
@@ -52,7 +61,11 @@ func (d LocalDiscovery) Model(ctx context.Context, model string) bool {
 		return false
 	}
 	info, err := os.Lstat(path)
-	return err == nil && info.Mode()&os.ModeSymlink == 0 && (info.IsDir() || info.Mode().IsRegular())
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return false
+	}
+	reparse, err := platformfs.PathHasReparsePoint(path)
+	return err == nil && !reparse
 }
 
 var _ Discovery = LocalDiscovery{}

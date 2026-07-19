@@ -46,7 +46,7 @@ func TestSessionAuthorityRejectsSymlinkParent(t *testing.T) {
 	}
 	link := filepath.Join(fixture.moduleRoot, "Sessions", "linked")
 	if err := os.Symlink(real, link); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	if _, err := filesystem.NewSessionMutationAuthority(fixture.paths, fixture.moduleRoot, link); !errors.Is(err, filesystem.ErrUnsafePath) && !errors.Is(err, filesystem.ErrTargetNotFound) {
 		t.Fatalf("got %v", err)

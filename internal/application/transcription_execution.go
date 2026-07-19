@@ -69,6 +69,9 @@ func defaultTranscriptionBackendFactory(config TranscriptionExecutionConfig, clo
 		if strings.TrimSpace(config.PythonExecutable) == "" || strings.TrimSpace(config.WorkerScript) == "" || strings.TrimSpace(config.ModelPath) == "" || strings.TrimSpace(config.ModelID) == "" {
 			return nil, transcriptionError(transcription.ErrorUnavailable, "execution_backend", "local transcription configuration is incomplete", "")
 		}
+		if !validLocalTranscriptionPaths(config.PythonExecutable, config.WorkerScript, config.ModelPath) {
+			return nil, transcriptionError(transcription.ErrorUnavailable, "execution_backend", "local transcription paths are invalid", "")
+		}
 		runner := transcriptionbackend.NewExecRunner()
 		discovery := transcriptionbackend.LocalDiscovery{Runner: runner, PythonExecutable: config.PythonExecutable, ModelPaths: map[string]string{config.ModelID: config.ModelPath}, ProbeTimeout: 5 * time.Second}
 		return transcriptionbackend.NewLocalBackend(transcriptionbackend.LocalConfig{Runner: runner, Discovery: discovery, Python: config.PythonExecutable, Worker: config.WorkerScript, ModelVersion: "configured-local", ModelID: config.ModelID, Clock: clock})

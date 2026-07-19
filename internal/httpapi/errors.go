@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Arameair/studypilot/internal/application"
 )
@@ -56,7 +58,21 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) bool {
 		return false
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
-	decoder := json.NewDecoder(r.Body)
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request_too_large", "The request body is too large.", false)
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid_input", "The JSON request body is invalid.", false)
+		}
+		return false
+	}
+	if !utf8.Valid(data) {
+		writeError(w, http.StatusBadRequest, "invalid_input", "The JSON request body must be valid UTF-8.", false)
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(destination); err != nil {
 		var tooLarge *http.MaxBytesError

@@ -89,7 +89,7 @@ func TestScanReturnsHealthyRecordsDespiteSiblingIssues(t *testing.T) {
 
 	// Unsafe symlink.
 	if err := os.Symlink(malformedRoot, filepath.Join(sessionsRoot, "005 - Link")); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 
 	// Two sibling directories that each validate but claim the same number.

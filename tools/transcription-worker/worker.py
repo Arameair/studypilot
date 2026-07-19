@@ -123,14 +123,13 @@ def load_configuration(environ: dict[str, str]) -> tuple[str, str, str]:
     if not model:
         raise WorkerFailure("model_missing", "local transcription model is not configured")
     model_path = Path(model)
-    if model_path.is_absolute():
-        if model_path.is_symlink() or not model_path.is_dir():
-            raise WorkerFailure("model_missing", "configured local transcription model is unavailable")
-        for parent in model_path.parents:
-            if parent.is_symlink():
-                raise WorkerFailure("model_missing", "configured local transcription model path is unsafe")
-    elif MODEL_ID_PATTERN.fullmatch(model) is None or ".." in model:
-        raise WorkerFailure("model_missing", "configured local transcription model identity is invalid")
+    if not model_path.is_absolute():
+        raise WorkerFailure("model_missing", "configured local transcription model must use an absolute local path")
+    if model_path.is_symlink() or not model_path.is_dir():
+        raise WorkerFailure("model_missing", "configured local transcription model is unavailable")
+    for parent in model_path.parents:
+        if parent.is_symlink():
+            raise WorkerFailure("model_missing", "configured local transcription model path is unsafe")
     device = environ.get("STUDYPILOT_TRANSCRIPTION_DEVICE", "cpu").strip().lower()
     compute_type = environ.get("STUDYPILOT_TRANSCRIPTION_COMPUTE_TYPE", "int8").strip().lower()
     if device not in ALLOWED_DEVICES:

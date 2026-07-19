@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/Arameair/studypilot/internal/platformfs"
 )
 
 // MutationResult describes a successfully published replacement.
@@ -42,13 +44,18 @@ type mutationOperations struct {
 func operatingSystemMutationOperations() mutationOperations {
 	return mutationOperations{
 		createTemp: func(dir, pattern string) (temporaryFile, error) { return os.CreateTemp(dir, pattern) },
-		rename:     os.Rename,
+		rename:     platformfs.Replace,
 		remove:     os.Remove,
 		openDir: func(path string) (syncedDirectory, error) {
-			return os.Open(path)
+			return &platformDirectory{path: path}, nil
 		},
 	}
 }
+
+type platformDirectory struct{ path string }
+
+func (d *platformDirectory) Sync() error  { return platformfs.SyncDir(d.path) }
+func (d *platformDirectory) Close() error { return nil }
 
 type pathLock struct {
 	token chan struct{}
@@ -125,7 +132,7 @@ func (e *MutationExecutor) Read(ctx context.Context, authority MutationAuthority
 	state := hashState(content)
 	return ManagedFile{
 		Path: filepath.Clean(target), Content: append([]byte(nil), content...),
-		SHA256: hashString(state.ContentHash), Mode: info.Mode().Perm(), Size: state.Size, expected: state,
+		SHA256: hashString(state.ContentHash), Mode: managedFileMode(info.Mode()), Size: state.Size, expected: state,
 	}, nil
 }
 

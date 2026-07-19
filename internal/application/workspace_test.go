@@ -4,12 +4,16 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
 func TestPlanWorkspaceInitializationDefaultRoot(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
 	service := newTestService(t, fixedClock(fixedDate), prefixedID("ws"))
 
 	result, err := service.PlanWorkspaceInitialization(context.Background(), WorkspaceRequest{})

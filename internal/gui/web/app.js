@@ -1,4 +1,4 @@
-const state = { course: null, module: null, session: null, courses: [], modules: [], moduleWorkspace: null, workspace: null, busy: new Set(), transcriptionController: null };
+const state = { course: null, module: null, session: null, courses: [], modules: [], moduleWorkspace: null, workspace: null, busy: new Set(), transcriptionController: null, routeHash: '', note: null };
 const $ = selector => document.querySelector(selector);
 
 class APIError extends Error {
@@ -29,6 +29,15 @@ function empty(text) { const p = document.createElement('p'); p.textContent = te
 function textElement(tag, text, className = '') { const node = document.createElement(tag); node.textContent = text; if (className) node.className = className; return node; }
 
 async function route() {
+  const requestedHash = location.hash || '#/';
+  if (state.routeHash && requestedHash !== state.routeHash && noteDirty()) {
+    if (!window.confirm('You have unsaved session notes. Leave this session and discard the draft?')) {
+      history.replaceState(null, '', state.routeHash);
+      return;
+    }
+    state.note = null;
+  }
+  state.routeHash = requestedHash;
   clearError();
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   if (parts[0] === 'course' && parts[2] === 'module' && parts[4] === 'session' && parts[5]) return loadSession(parts[1], parts[3], parts[5]);
@@ -115,11 +124,14 @@ async function createSession(event) {
 }
 
 async function loadSession(courseID = state.course, moduleID = state.module, sessionID = state.session) {
+  if (!state.note || state.note.sessionID !== sessionID) state.note = null;
   showView('session-view'); state.course = courseID; state.module = moduleID; state.session = sessionID; $('#module-nav').hidden = false;
   setLoading('#session-loading', true); announce('Loading authoritative session state…');
   try {
     const value = await api(`/sessions/${encode(courseID)}/${encode(moduleID)}/${encode(sessionID)}`); state.workspace = value;
-    renderSession(value); announce('Session workspace is current.');
+    renderSession(value);
+    if (value.notes.session_exists && (!state.note || !state.note.loaded)) await loadSessionNotes(false);
+    announce('Session workspace is current.');
   } catch (error) { showError(error); announce('Session workspace could not be loaded.'); }
   finally { setLoading('#session-loading', false); }
 }
@@ -139,7 +151,64 @@ function renderSession(value) {
   if (!value.session.segments.some(segment => segment.status === 'stopped')) $('#segments').append(empty('No finalized segments yet. Pause or stop recording to finalize a segment.'));
   const sessionNote = value.artifacts.find(item => item.type === 'note' && item.scope.kind === 'session');
   $('#notes-status').textContent = sessionNote ? `Session notes created: ${sessionNote.relative_path} · ${sessionNote.related_transcript_artifact_ids?.length || 0} linked transcripts` : `Session notes are missing. Module notes: ${value.notes.module_exists ? 'created' : 'missing'}.`;
+  $('#session-notes-editor').hidden = !sessionNote;
+  if (!sessionNote) state.note = null;
+  renderNoteState();
   renderArtifacts(value.artifacts); renderIssues('#artifact-issues', value.artifact_issues); updateControls(value);
+}
+
+function noteDirty() {
+  return Boolean(state.note?.loaded && state.note.content !== state.note.savedContent);
+}
+
+function renderNoteState() {
+  const editor = $('#session-notes-content');
+  const loaded = Boolean(state.note?.loaded);
+  if (loaded && editor.value !== state.note.content) editor.value = state.note.content;
+  const content = loaded ? state.note.content : editor.value;
+  $('#notes-count').textContent = `${[...content].length} characters · ${new TextEncoder().encode(content).length} UTF-8 bytes`;
+  const pending = Boolean(state.note?.pending);
+  $('#notes-save-status').textContent = pending ? 'Pending…' : !loaded ? 'Not loaded' : noteDirty() ? 'Unsaved changes' : 'Saved';
+  $('#save-session-notes').disabled = !loaded || !noteDirty() || pending;
+  $('#load-session-notes').disabled = pending;
+}
+
+async function loadSessionNotes(confirmDiscard = true) {
+  if (!state.workspace?.notes.session_exists || state.note?.pending) return;
+  if (confirmDiscard && noteDirty() && !window.confirm('Reload saved notes and discard your unsaved draft?')) return;
+  const sessionID = state.session;
+  state.note = {...(state.note || {}), sessionID, pending:true};
+  renderNoteState();
+  try {
+    const value = await api(`/sessions/${encode(state.course)}/${encode(state.module)}/${encode(sessionID)}/notes/session`);
+    state.note = {sessionID, loaded:true, pending:false, content:value.content, savedContent:value.content, revision:value.revision};
+    $('#session-notes-content').value = value.content;
+    announce('Session notes loaded.');
+  } catch (error) {
+    state.note = {...state.note, pending:false};
+    showError(error);
+    announce('Session notes could not be loaded.');
+  }
+  renderNoteState();
+}
+
+async function saveSessionNotes() {
+  if (!state.note?.loaded || !noteDirty() || state.note.pending) return;
+  const draft = state.note.content;
+  state.note.pending = true;
+  renderNoteState();
+  clearError();
+  try {
+    const value = await api(`/sessions/${encode(state.course)}/${encode(state.module)}/${encode(state.session)}/notes/session`, {method:'PUT', body:JSON.stringify({content:draft, expected_artifact_revision:state.note.revision})});
+    state.note = {...state.note, pending:false, content:value.content, savedContent:value.content, revision:value.revision};
+    state.workspace.artifact_revision = value.revision;
+    announce('Session notes saved.');
+  } catch (error) {
+    state.note = {...state.note, pending:false, content:draft};
+    showError(error, error.status === 409 ? 'Your draft is preserved. Reload only after copying or reconciling it with the saved version.' : '');
+    announce(error.status === 409 ? 'Session notes conflict; draft preserved.' : 'Session notes were not saved.');
+  }
+  renderNoteState();
 }
 
 function captureLabel(value) {
@@ -199,6 +268,11 @@ async function transcribe(segmentID) {
 }
 
 function warnDuringTranscription(event) { event.preventDefault(); event.returnValue = ''; }
+function warnUnsavedNotes(event) {
+  if (!noteDirty()) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
 async function refreshArtifacts() {
   const action = 'refresh-artifacts'; if (state.busy.has(action)) return; state.busy.add(action); setLoading('#artifact-loading', true); clearError();
   try { await api(`/courses/${encode(state.course)}/modules/${encode(state.module)}/artifacts/refresh`, {method:'POST', body:JSON.stringify({expected_artifact_revision:state.workspace.artifact_revision})}); announce('Artifact index refreshed.'); }
@@ -249,6 +323,14 @@ document.addEventListener('click', event => {
 });
 $('#create-session-form').addEventListener('submit', createSession); $('#create-module-notes').addEventListener('click', createModuleNotes);
 $('#cancel-transcription').addEventListener('click', () => state.transcriptionController?.abort());
+$('#session-notes-content').addEventListener('input', event => {
+  if (!state.note?.loaded || state.note.pending) return;
+  state.note.content = event.target.value;
+  renderNoteState();
+});
+$('#load-session-notes').addEventListener('click', () => loadSessionNotes(true));
+$('#save-session-notes').addEventListener('click', saveSessionNotes);
 $('#courses-nav').addEventListener('click', () => { location.hash = '#/'; }); $('#back-to-courses').addEventListener('click', () => { location.hash = '#/'; }); $('#module-back').addEventListener('click', () => { location.hash = '#/'; });
 $('#module-nav').addEventListener('click', () => { location.hash = `#/course/${encode(state.course)}/module/${encode(state.module)}`; }); $('#session-back').addEventListener('click', () => { location.hash = `#/course/${encode(state.course)}/module/${encode(state.module)}`; });
+window.addEventListener('beforeunload', warnUnsavedNotes);
 window.addEventListener('hashchange', () => route()); route();

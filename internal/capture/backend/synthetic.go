@@ -70,7 +70,7 @@ type syntheticEngine struct {
 }
 
 func (e *syntheticEngine) recover(path string) (engineHandle, error) {
-	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, newError(ErrorPartialOutput, OpNameStart, "partial audio could not be reopened", err)
 	}
@@ -83,7 +83,10 @@ func (e *syntheticEngine) recover(path string) (engineHandle, error) {
 	if bytes < 0 {
 		bytes = 0
 	}
-	return &syntheticHandle{file: file, dataBytes: bytes}, nil
+	if err := file.Close(); err != nil {
+		return nil, err
+	}
+	return &syntheticHandle{path: path, dataBytes: bytes}, nil
 }
 
 func (e *syntheticEngine) name() string { return "synthetic" }
@@ -112,11 +115,18 @@ func (e *syntheticEngine) begin(ctx context.Context, partialPath string, format 
 		_ = file.Close()
 		return nil, writeErr
 	}
-	return &syntheticHandle{file: file, dataBytes: result.BytesWritten}, nil
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return nil, newError(ErrorInternal, OpNameStart, "sync synthetic wav", err)
+	}
+	if err := file.Close(); err != nil {
+		return nil, newError(ErrorInternal, OpNameStart, "close synthetic wav", err)
+	}
+	return &syntheticHandle{path: partialPath, dataBytes: result.BytesWritten}, nil
 }
 
 type syntheticHandle struct {
-	file      *os.File
+	path      string
 	dataBytes int64
 	done      bool
 }
@@ -128,13 +138,19 @@ func (h *syntheticHandle) finalize(ctx context.Context) (int64, error) {
 	if err := checkContext(ctx, OpNameFinalize); err != nil {
 		return h.dataBytes, err
 	}
-	if err := patchWAVHeader(h.file, uint32(h.dataBytes)); err != nil {
+	file, err := os.OpenFile(h.path, os.O_RDWR, 0)
+	if err != nil {
+		return h.dataBytes, newError(ErrorFinalizationFailed, OpNameFinalize, "open wav for finalization", err)
+	}
+	if err := patchWAVHeader(file, uint32(h.dataBytes)); err != nil {
+		_ = file.Close()
 		return h.dataBytes, newError(ErrorFinalizationFailed, OpNameFinalize, "patch wav header", err)
 	}
-	if err := h.file.Sync(); err != nil {
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
 		return h.dataBytes, newError(ErrorFinalizationFailed, OpNameFinalize, "sync audio", err)
 	}
-	if err := h.file.Close(); err != nil {
+	if err := file.Close(); err != nil {
 		return h.dataBytes, newError(ErrorFinalizationFailed, OpNameFinalize, "close audio", err)
 	}
 	h.done = true
@@ -145,9 +161,12 @@ func (h *syntheticHandle) abort(context.Context) (int64, error) {
 	if h.done {
 		return h.dataBytes, nil
 	}
-	_ = patchWAVHeader(h.file, uint32(h.dataBytes))
-	_ = h.file.Sync()
-	err := h.file.Close()
+	file, err := os.OpenFile(h.path, os.O_RDWR, 0)
+	if err == nil {
+		_ = patchWAVHeader(file, uint32(h.dataBytes))
+		_ = file.Sync()
+		err = file.Close()
+	}
 	h.done = true
 	return h.dataBytes, err
 }

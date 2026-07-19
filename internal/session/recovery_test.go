@@ -121,7 +121,7 @@ func TestDiscoverIncompleteStableAndReportsIssues(t *testing.T) {
 	}
 	link := filepath.Join(fixture.moduleRoot, "Sessions", "998 - Link")
 	if err := os.Symlink(unmanaged, link); err != nil {
-		t.Fatal(err)
+		t.Skipf("symlink unavailable: %v", err)
 	}
 	discovery, err := fixture.repository.DiscoverIncomplete(context.Background(), fixture.courseID, fixture.moduleID)
 	if err != nil {
