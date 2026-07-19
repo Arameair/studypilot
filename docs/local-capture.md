@@ -10,11 +10,11 @@ recorder. The browser never receives audio bytes or requests microphone access.
 
 ## Validated utility and driver
 
-The implemented Linux-first utility is `ffmpeg`. The narrow driver allowlist is
-`pulse` and `alsa`. Unit and synthetic integration tests validate both driver
-argument forms without opening a real device. A real driver/device combination
-is not considered operationally validated until the opt-in harness passes on
-that host with purpose-created audio.
+The implemented utility is FFmpeg. Linux accepts `pulse` or `alsa`. Windows
+accepts native DirectShow (`dshow`). Unit and synthetic integration tests
+validate the fixed argument forms without opening a real device. A real
+driver/device combination is operationally validated only for the exact host
+where the opt-in harness passes with purpose-created audio.
 
 ## Configuration
 
@@ -33,6 +33,20 @@ single-link file named `ffmpeg`. The device is required, valid UTF-8, at most
 512 bytes, and contains no NUL, carriage return, or newline. It is passed as one
 argument, kept inside the composition/backend closure, and represented outside
 that boundary only as `configured`.
+
+Windows requires an absolute regular non-reparse file named `ffmpeg.exe`, the
+driver `dshow`, and an exact DirectShow audio name selected by the user:
+
+```powershell
+$env:STUDYPILOT_CAPTURE_BACKEND = "local"
+$env:STUDYPILOT_CAPTURE_EXECUTABLE = "C:\Program Files\FFmpeg\bin\ffmpeg.exe"
+$env:STUDYPILOT_CAPTURE_DRIVER = "dshow"
+$env:STUDYPILOT_CAPTURE_DEVICE = "Exact DirectShow audio-device name"
+.\bin\studypilot.exe gui
+```
+
+The Windows device value additionally rejects control characters and
+`audio=`/`video=` prefixes; StudyPilot supplies the `audio=` prefix itself.
 
 Leaving `STUDYPILOT_CAPTURE_BACKEND` unset keeps the GUI usable but makes
 capture unavailable. Synthetic development capture requires the explicit value
@@ -60,6 +74,17 @@ constructs a fixed `ffmpeg` argument vector equivalent to:
 The output path comes only from the validated session segment authority.
 Standard output is discarded and standard error is bounded internally; raw
 diagnostics and the full command are never public results.
+
+On Windows the fixed input portion is:
+
+```text
+-hide_banner -loglevel error
+-f dshow -i audio=<exact selected device>
+```
+
+The canonical output arguments are the same. FFmpeg is given a private stdin
+pipe; pause, stop, and shutdown first send `q` to request a valid WAV trailer,
+then use the bounded termination path and always wait for process reaping.
 
 After launch, StudyPilot waits through a bounded 200 millisecond startup
 stability window. A recorder that exits during that window is a failed start,
@@ -167,10 +192,26 @@ error when available, and the presence of partial output, ownership, or a live
 recorder. It never prints FFmpeg stderr, the full command, or the configured
 device.
 
+On Windows, list without recording and then run the explicitly authorized
+harness with the exact chosen name:
+
+```powershell
+pwsh.exe -NoProfile -File .\scripts\list-windows-audio-devices.ps1
+pwsh.exe -NoProfile -File .\scripts\validate-local-capture-windows.ps1 `
+  -FfmpegPath "C:\Program Files\FFmpeg\bin\ffmpeg.exe" `
+  -AudioDevice "Exact DirectShow audio-device name" `
+  -AuthorizeRecording
+```
+
+The Windows harness also prompts before direct validation and before each
+StudyPilot segment. It never selects a device automatically.
+
 ## Privacy and limitations
 
 Use only a short purpose-created phrase—not course audio, copyrighted media,
-private conversations, or a real vault. Capture is Linux-first, `ffmpeg`-only,
-and explicitly configured. There is no browser microphone, automatic device
+private conversations, or a real vault. Capture is FFmpeg-only and explicitly
+configured. Windows DirectShow microphone validation does not prove speaker
+output or loopback capture unless that exact capability appears as a separately
+selected DirectShow device. There is no browser microphone, automatic device
 selection, remote access, desktop packaging, background recording, or automatic
 repair.

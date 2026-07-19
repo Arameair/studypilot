@@ -33,8 +33,9 @@ StudyPilot currently provides:
 - safe workspace initialization and validation contracts;
 - immutable course, module, and session identities;
 - revision-controlled session lifecycle operations and recovery inspection;
-- a Linux-first local capture architecture using explicitly configured
-  `ffmpeg`, plus explicit synthetic capture for development and tests;
+- native Linux and experimental Windows local capture using explicitly
+  configured `ffmpeg`, plus explicit synthetic capture for development and
+  tests;
 - pause/resume segmented 16 kHz mono 16-bit PCM WAV recording, with manifests,
   ownership, atomic finalization, and partial-evidence recovery;
 - synchronous local faster-whisper transcription with explicit local paths,
@@ -74,6 +75,16 @@ For deterministic development capture, select it explicitly:
 STUDYPILOT_CAPTURE_BACKEND=synthetic ./bin/studypilot gui
 ```
 
+On Windows, the equivalent deterministic workflow is:
+
+```powershell
+pwsh.exe -NoProfile -File .\scripts\verify-windows.ps1
+pwsh.exe -NoProfile -File .\scripts\validate-gui-workflow-windows.ps1
+```
+
+See [Windows setup](docs/windows-setup.md) and
+[platform support](docs/platform-support.md) before configuring real capture.
+
 For operational Linux capture, supply an exact trusted executable and an
 explicit local input identifier:
 
@@ -88,6 +99,16 @@ export STUDYPILOT_CAPTURE_DEVICE='<configured-device-id>'
 StudyPilot passes the device as one bounded argument and never returns its raw
 value through the API or persists it in session runtime. The exposed identity
 is only `configured`. See [local capture](docs/local-capture.md).
+
+On Windows, list DirectShow audio inputs without recording or selecting one:
+
+```powershell
+pwsh.exe -NoProfile -File .\scripts\list-windows-audio-devices.ps1
+```
+
+Then pass an exact trusted `ffmpeg.exe`, the `dshow` driver, and the exact
+user-selected audio-device name. A microphone input does not prove speaker or
+system-output capture.
 
 Local transcription is also explicit and uses an already installed worker,
 Python environment, and local model:
@@ -119,6 +140,12 @@ Real local capture validation is opt-in and documented in
 [local capture](docs/local-capture.md); use only purpose-created test speech and
 an isolated temporary workspace.
 
+Native Windows verification uses:
+
+```powershell
+pwsh.exe -NoProfile -File .\scripts\verify-windows.ps1
+```
+
 ## Safety boundary
 
 - Operation is local-only; the GUI binds only to IPv4 loopback and rejects
@@ -134,15 +161,18 @@ an isolated temporary workspace.
 
 ## Current limitations
 
-- Operational audio capture is Linux-first and currently supports explicit
-  `ffmpeg` input through `pulse` or `alsa`.
+- Linux local capture supports explicit `pulse` or `alsa`; experimental
+  Windows local capture supports an exact user-selected DirectShow audio input.
+- Windows support remains an active development target and is not
+  production-ready. Real hardware validation is host- and device-specific.
 - Operational process-backed recording is hosted by the long-lived GUI process;
   one-shot CLI capture start remains synthetic-only to prevent orphan recorders.
 - There is no browser microphone, remote access, desktop wrapper, or tray
   integration.
 - The transcription queue is not persistent and there is no background worker
   or automatic retry.
-- There is no asset upload UI or Markdown editor.
+- There is no asset upload UI. Session Markdown notes are editable as exact
+  UTF-8 text with revision-conflict protection; there is no rich-text editor.
 - There is no AI tutor, note generation, summarization, RAG, or publication
   automation.
 - A real paid-course usability test has not been performed and is not

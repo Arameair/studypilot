@@ -23,10 +23,12 @@ partial, failure, cancellation, and timeout outcomes.
 
 The local backend invokes a configured Python executable directly with fixed
 arguments and JSON on stdin. It never uses a shell or exposes its command line.
-The production runner bounds stdout and stderr, reaps the child synchronously,
-sends an interrupt on context cancellation, and lets `os/exec` force-kill after
-a bounded wait. Errors expose stable safe codes rather than stderr, transcript
-text, absolute paths, or raw commands.
+The production runner bounds stdout and stderr and reaps the child
+synchronously. Unix requests an interrupt on cancellation before the bounded
+force-kill path. Windows uses direct native process execution, hides the worker
+console, terminates the exact timed-out child, and waits for reaping. Errors
+expose stable safe codes rather than stderr, transcript text, absolute paths,
+or raw commands.
 
 ## Python/faster-whisper protocol
 
@@ -48,8 +50,9 @@ Model configuration is explicit through
 `STUDYPILOT_TRANSCRIPTION_MODEL`, `STUDYPILOT_TRANSCRIPTION_DEVICE`, and
 `STUDYPILOT_TRANSCRIPTION_COMPUTE_TYPE`. The worker constructs
 `WhisperModel` with `local_files_only=True`; neither Go nor Python searches for
-or downloads a model. The validation path additionally requires an absolute
-existing model directory.
+or downloads a model. The worker requires an absolute existing local model
+directory. Native Windows application configuration additionally requires
+absolute Python and worker paths and supports paths containing spaces.
 
 ## Capability discovery
 

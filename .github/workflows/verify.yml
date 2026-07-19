@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +20,50 @@ jobs:
         with:
           python-version: '3.13'
       - run: make verify
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Go tests
+        shell: pwsh
+        run: go test ./...
+      - name: Go vet and package listing
+        shell: pwsh
+        run: |
+          go vet ./...
+          go list ./...
+      - name: Build native Windows executable
+        shell: pwsh
+        run: go build -o .\bin\studypilot.exe .\cmd\studypilot
+      - name: Python standard-library worker tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tools\transcription-worker\tests -p "test_*.py"
+          python -m py_compile tools\transcription-worker\worker.py tools\transcription-worker\tests\test_worker.py
+      - name: PowerShell syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem .\scripts\*.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell syntax validation failed."
+            }
+          }
+      - name: Synthetic Windows GUI workflow
+        shell: pwsh
+        run: pwsh.exe -NoProfile -File .\scripts\validate-gui-workflow-windows.ps1
