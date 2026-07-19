@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/Arameair/studypilot/internal/workspace"
@@ -182,17 +181,25 @@ func TestReadManagedFileRejectsUnsafeAndInvalidTargets(t *testing.T) {
 	if _, err := executor.Read(context.Background(), authority, target); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("symlink: %v", err)
 	}
+}
 
-	if runtime.GOOS == "linux" {
-		if err := os.Remove(target); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Link(real, target); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := executor.Read(context.Background(), authority, target); !errors.Is(err, ErrUnsafePath) {
-			t.Fatalf("hard link: %v", err)
-		}
+func TestReadManagedFileRejectsHardlinkedTarget(t *testing.T) {
+	fixture := newMutationFixture(t)
+	executor := NewMutationExecutor()
+	authority, _ := NewCourseMutationAuthority(fixture.paths, fixture.course)
+	target := filepath.Join(fixture.course, courseMetadataFileName)
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	real := filepath.Join(fixture.course, "hardlink-source")
+	if err := os.WriteFile(real, []byte("real"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(real, target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executor.Read(context.Background(), authority, target); !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("hard link: %v", err)
 	}
 }
 

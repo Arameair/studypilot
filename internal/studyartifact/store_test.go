@@ -93,6 +93,44 @@ func TestSessionNotesReadUpdateValidationAndRevision(t *testing.T) {
 	}
 }
 
+func TestSessionNotesRejectHardlinkedManagedFile(t *testing.T) {
+	f := newArtifactFixture(t)
+	ctx := context.Background()
+	created, _, err := f.store.CreateSessionNotes(ctx, "session-1", "Session Notes", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(f.root, filepath.FromSlash(created.RelativePath))
+	original := target + ".original"
+	if err = os.Rename(target, original); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Link(original, target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.store.LoadSessionNotes(ctx, "session-1"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("hardlinked note accepted: %v", err)
+	}
+}
+
+func TestStoreRejectsHardlinkedIndex(t *testing.T) {
+	f := newArtifactFixture(t)
+	if _, _, err := f.store.CreateModuleNotes(context.Background(), "Module Notes", 0); err != nil {
+		t.Fatal(err)
+	}
+	target := f.store.IndexPath()
+	original := target + ".original"
+	if err := os.Rename(target, original); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(original, target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.Load(context.Background()); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("hardlinked index accepted: %v", err)
+	}
+}
+
 func TestIdentityTypeScopeAndRecordValidation(t *testing.T) {
 	id, err := NewID("study-artifact-0123456789abcdef0123456789abcdef")
 	if err != nil || id.String() == "" {

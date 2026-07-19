@@ -12,10 +12,7 @@ func startReq(sessionRoot string, number int) StartSegmentRequest {
 	return StartSegmentRequest{SessionRoot: sessionRoot, SessionID: testSessionID, CaptureID: testCaptureID, Number: number, DeviceID: "synthetic-default"}
 }
 
-func TestStartRejectsHardLinkedTargets(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("hard link semantics differ on windows")
-	}
+func TestStartRejectsHardlinkedTargets(t *testing.T) {
 	backend, sessionRoot := newSyntheticBackend(t, 200)
 	segments := segmentsPath(sessionRoot)
 	if err := os.MkdirAll(segments, 0o750); err != nil {
@@ -27,7 +24,7 @@ func TestStartRejectsHardLinkedTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.Link(original, filepath.Join(segments, audioName(1))); err != nil {
-		t.Skipf("hard links unsupported: %v", err)
+		t.Fatal(err)
 	}
 	if _, err := backend.StartSegment(context.Background(), startReq(sessionRoot, 1)); CodeOf(err) != ErrorUnsafePath {
 		t.Fatalf("hard-linked target = %v", err)

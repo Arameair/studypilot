@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
@@ -87,7 +88,8 @@ func (a ArtifactAuthority) Resolve(relative string) (string, error) {
 		return "", newError(ErrorUnsafePath, "artifact_authority", false, "artifact path escapes Transcripts", nil)
 	}
 	if info, err := os.Lstat(target); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+		multiple, linkErr := platformfs.HasMultipleHardLinks(target)
+		if info.Mode()&os.ModeSymlink != 0 || linkErr != nil || multiple {
 			return "", newError(ErrorUnsafePath, "artifact_authority", false, "artifact target is linked", nil)
 		}
 	} else if !os.IsNotExist(err) {

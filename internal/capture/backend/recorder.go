@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Arameair/studypilot/internal/capture"
+	"github.com/Arameair/studypilot/internal/platformfs"
 	studyruntime "github.com/Arameair/studypilot/internal/runtime"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
@@ -182,7 +183,8 @@ func (r *recorder) StartSegment(ctx context.Context, req StartSegmentRequest) (A
 	for _, path := range []string{finalPath, manifestPath, partialPath} {
 		info, statErr := os.Lstat(path)
 		if statErr == nil {
-			if info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+			multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+			if info.Mode()&os.ModeSymlink != 0 || linkErr != nil || multiple {
 				return ActiveSegment{}, newError(ErrorUnsafePath, OpNameStart, "a segment path is a symlink or hard link", nil)
 			}
 			return ActiveSegment{}, newError(ErrorSegmentConflict, OpNameStart, "a segment file already exists for this number", nil)
@@ -264,7 +266,11 @@ func (r *recorder) unwindFailedStart(record *activeRecording, cause error) error
 
 func meaningfulPartialWAV(path string, format AudioFormat) (int64, bool) {
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return 0, false
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if linkErr != nil || multiple {
 		return 0, false
 	}
 	wav, err := ParseWAVFile(path)
@@ -307,8 +313,12 @@ func (r *recorder) FinalizeSegment(ctx context.Context, active ActiveSegment) (F
 		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "audio finalization failed", err)
 	}
 	info, statErr := os.Lstat(record.partialPath)
-	if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+	if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "finalized audio path is unsafe", statErr)
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(record.partialPath)
+	if linkErr != nil || multiple {
+		return FinalizedSegment{}, newError(ErrorFinalizationFailed, OpNameFinalize, "finalized audio path is unsafe", linkErr)
 	}
 	wav, err := ParseWAVFile(record.partialPath)
 	if err != nil {

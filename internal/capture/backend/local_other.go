@@ -5,6 +5,8 @@ package backend
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/Arameair/studypilot/internal/platformfs"
 )
 
 func localExecutableIssue(path string) (string, string) {
@@ -15,7 +17,8 @@ func localExecutableIssue(path string) (string, string) {
 	if err != nil {
 		return "capture_executable_missing", "the configured capture executable is unavailable"
 	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o111 == 0 || hasMultipleHardLinks(info) {
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if linkErr != nil || multiple || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o111 == 0 {
 		return "capture_executable_unsafe", "the configured capture executable is not a safe regular executable"
 	}
 	return "", ""

@@ -20,7 +20,8 @@ func localExecutableIssue(path string) (string, string) {
 		return "capture_executable_missing", "the configured capture executable is unavailable"
 	}
 	reparse, reparseErr := platformfs.PathHasReparsePoint(path)
-	if reparseErr != nil || reparse || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if reparseErr != nil || reparse || linkErr != nil || multiple || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 		return "capture_executable_unsafe", "the configured capture executable is not a safe regular executable"
 	}
 	return "", ""

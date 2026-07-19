@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/transcription"
 )
 
@@ -134,7 +135,11 @@ func finalizedInputPath(sessionRoot, relative string) (string, error) {
 	if err != nil {
 		return "", newError(ErrorInvalidRequest, "input", false, "finalized input audio is unavailable", err)
 	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleHardLinks(info) {
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return "", newError(ErrorUnsafePath, "input", false, "input audio is linked or not regular", nil)
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(target)
+	if linkErr != nil || multiple {
 		return "", newError(ErrorUnsafePath, "input", false, "input audio is linked or not regular", nil)
 	}
 	return target, nil

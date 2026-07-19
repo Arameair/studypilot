@@ -80,3 +80,18 @@ func TestWindowsLocalConfigurationRejectsUnsafeValues(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsLocalConfigurationRejectsHardlinkedExecutable(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.exe")
+	executable := filepath.Join(dir, "ffmpeg.exe")
+	if err := os.WriteFile(source, []byte("fixture"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(source, executable); err != nil {
+		t.Fatal(err)
+	}
+	if issues := LocalConfigurationIssues(executable, "dshow", "Microphone"); !hasCapabilityIssue(issues, "capture_executable_unsafe") {
+		t.Fatalf("hardlinked executable issues=%+v", issues)
+	}
+}

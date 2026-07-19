@@ -65,6 +65,10 @@ func (s *Store) Load(ctx context.Context) (Index, error) {
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return Index{}, fmt.Errorf("%w: unsafe index", ErrInvalid)
 	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if linkErr != nil || multiple {
+		return Index{}, fmt.Errorf("%w: unsafe index", ErrInvalid)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Index{}, err
@@ -184,7 +188,11 @@ func (s *Store) safeMutableNotePath(record Record) (string, error) {
 		return "", ErrInvalid
 	}
 	info, err := os.Lstat(target)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || hasMultipleLinks(info) {
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return "", ErrInvalid
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(target)
+	if linkErr != nil || multiple {
 		return "", ErrInvalid
 	}
 	reparse, err := platformfs.PathHasReparsePoint(target)
@@ -423,7 +431,8 @@ func (s *Store) discover(ctx context.Context, current Index, assignIdentities bo
 			issues = append(issues, issue("asset_symlink", "error", false, "", relative, "managed artifact is not a regular file"))
 			return
 		}
-		if hasMultipleLinks(info) {
+		multiple, linkErr := platformfs.HasMultipleHardLinks(abs)
+		if linkErr != nil || multiple {
 			issues = append(issues, issue("asset_hardlink_conflict", "error", false, "", relative, "managed artifact has multiple filesystem links"))
 			return
 		}
@@ -530,12 +539,13 @@ func (s *Store) discoverAssets(dir, relativeBase string, scope Scope, add addFil
 			continue
 		}
 		rel := relativeBase + "/" + e.Name()
-		info, infoErr := e.Info()
+		_, infoErr := e.Info()
 		if e.Type()&os.ModeSymlink != 0 || infoErr != nil {
 			*issues = append(*issues, issue("asset_symlink", "error", false, "", rel, "managed asset is a symlink"))
 			continue
 		}
-		if hasMultipleLinks(info) {
+		multiple, linkErr := platformfs.HasMultipleHardLinks(filepath.Join(dir, e.Name()))
+		if linkErr != nil || multiple {
 			*issues = append(*issues, issue("asset_hardlink_conflict", "error", false, "", rel, "managed asset has multiple filesystem links"))
 			continue
 		}
@@ -709,7 +719,11 @@ func readJSON(path string, out any) error {
 	if err != nil {
 		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || hasMultipleLinks(info) {
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return ErrInvalid
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if linkErr != nil || multiple {
 		return ErrInvalid
 	}
 	data, err := os.ReadFile(path)
@@ -721,7 +735,11 @@ func readJSON(path string, out any) error {
 
 func regularUnlinkedFile(path string) bool {
 	info, err := os.Lstat(path)
-	return err == nil && info.Mode()&os.ModeSymlink == 0 && info.Mode().IsRegular() && !hasMultipleLinks(info)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return false
+	}
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	return linkErr == nil && !multiple
 }
 func writeExclusiveAtomic(path string, data []byte, mode fs.FileMode) error {
 	if _, err := os.Lstat(path); err == nil {

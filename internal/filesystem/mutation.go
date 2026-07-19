@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Arameair/studypilot/internal/platformfs"
 	"github.com/Arameair/studypilot/internal/workspace"
 )
 
@@ -342,7 +343,8 @@ func readRegularManaged(path string) ([]byte, fs.FileInfo, error) {
 	if !info.Mode().IsRegular() {
 		return nil, nil, ErrTargetNotRegular
 	}
-	if hasMultipleHardLinks(info) {
+	multiple, linkErr := platformfs.HasMultipleHardLinks(path)
+	if linkErr != nil || multiple {
 		return nil, nil, fmt.Errorf("%w: hard-linked target", ErrUnsafePath)
 	}
 	file, err := os.Open(path)
@@ -354,7 +356,8 @@ func readRegularManaged(path string) ([]byte, fs.FileInfo, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if !os.SameFile(info, opened) || !opened.Mode().IsRegular() || hasMultipleHardLinks(opened) {
+	multiple, linkErr = platformfs.HasMultipleHardLinks(path)
+	if !os.SameFile(info, opened) || !opened.Mode().IsRegular() || linkErr != nil || multiple {
 		return nil, nil, ErrUnsafePath
 	}
 	content, err := io.ReadAll(file)

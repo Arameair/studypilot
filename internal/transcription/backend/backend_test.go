@@ -105,7 +105,7 @@ func TestSyntheticBackendDeterministicPartialFailureCancellationAndTimeout(t *te
 	}
 }
 
-func TestBackendRejectsLinkedSourceAudio(t *testing.T) {
+func TestBackendRejectsSymlinkSourceAudio(t *testing.T) {
 	f := newFixture(t)
 	original := f.input + ".original"
 	if err := os.Rename(f.input, original); err != nil {
@@ -118,12 +118,18 @@ func TestBackendRejectsLinkedSourceAudio(t *testing.T) {
 	if _, err := backend.Transcribe(context.Background(), request(f)); CodeOf(err) != ErrorUnsafePath {
 		t.Fatalf("symlink=%v", err)
 	}
-	if err := os.Remove(f.input); err != nil {
+}
+
+func TestBackendRejectsHardlinkedSourceAudio(t *testing.T) {
+	f := newFixture(t)
+	original := f.input + ".original"
+	if err := os.Rename(f.input, original); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Link(original, f.input); err != nil {
 		t.Fatal(err)
 	}
+	backend, _ := NewSyntheticBackend(SyntheticConfig{Clock: func() time.Time { return f.now }})
 	if _, err := backend.Transcribe(context.Background(), request(f)); CodeOf(err) != ErrorUnsafePath {
 		t.Fatalf("hardlink=%v", err)
 	}
@@ -284,25 +290,6 @@ func TestArtifactAuthorityRejectsUnsafeBoundaries(t *testing.T) {
 			t.Errorf("%q: %v", path, err)
 		}
 	}
-	target, _ := authority.Resolve(f.artifacts.JSONRelativePath)
-	if err = os.Symlink(f.input, target); err != nil {
-		t.Skipf("symlink unavailable: %v", err)
-	}
-	if _, err = authority.Resolve(f.artifacts.JSONRelativePath); CodeOf(err) != ErrorUnsafePath {
-		t.Fatal("symlinked target accepted")
-	}
-	if err = os.Remove(target); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.Link(f.input, target); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = authority.Resolve(f.artifacts.JSONRelativePath); CodeOf(err) != ErrorUnsafePath {
-		t.Fatal("hard-linked target accepted")
-	}
-	if err = os.Remove(target); err != nil {
-		t.Fatal(err)
-	}
 	sibling := filepath.Join(filepath.Dir(f.sessionRoot), "Sibling")
 	if err = os.MkdirAll(sibling, 0o750); err != nil {
 		t.Fatal(err)
@@ -325,6 +312,48 @@ func TestArtifactAuthorityRejectsUnsafeBoundaries(t *testing.T) {
 	}
 	if err = authority.EnsureDir(); CodeOf(err) != ErrorUnsafePath {
 		t.Fatal(err)
+	}
+}
+
+func TestArtifactAuthorityRejectsSymlinkTarget(t *testing.T) {
+	f := newFixture(t)
+	authority, err := NewArtifactAuthority(f.paths, f.sessionRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authority.EnsureDir(); err != nil {
+		t.Fatal(err)
+	}
+	target, err := authority.Resolve(f.artifacts.JSONRelativePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Symlink(f.input, target); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	if _, err = authority.Resolve(f.artifacts.JSONRelativePath); CodeOf(err) != ErrorUnsafePath {
+		t.Fatal("symlinked target accepted")
+	}
+}
+
+func TestArtifactAuthorityRejectsHardlinkedTarget(t *testing.T) {
+	f := newFixture(t)
+	authority, err := NewArtifactAuthority(f.paths, f.sessionRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authority.EnsureDir(); err != nil {
+		t.Fatal(err)
+	}
+	target, err := authority.Resolve(f.artifacts.JSONRelativePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Link(f.input, target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = authority.Resolve(f.artifacts.JSONRelativePath); CodeOf(err) != ErrorUnsafePath {
+		t.Fatal("hard-linked target accepted")
 	}
 }
 
