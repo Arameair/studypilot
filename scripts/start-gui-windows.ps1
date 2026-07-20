@@ -2,7 +2,7 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$Root,
+    [string]$Root = "",
     [string]$FfmpegPath = "",
     [string]$AudioDevice = "",
     [string]$PythonPath = "",
@@ -15,7 +15,6 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $Executable = Join-Path $RepoRoot "bin\studypilot.exe"
-$ResolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
     throw "bin\studypilot.exe is missing. Run scripts\verify-windows.ps1 or go build first."
 }
@@ -44,9 +43,15 @@ function Quote-WindowsArgument([string]$Value) {
 }
 
 $Address = "127.0.0.1:$Port"
+$GuiArguments = @("gui")
+if (-not [string]::IsNullOrWhiteSpace($Root)) {
+    $ResolvedRoot = [IO.Path]::GetFullPath($Root)
+    $GuiArguments += @("--root", $ResolvedRoot)
+}
+$GuiArguments += @("--address", $Address)
 $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
 $ProcessInfo.FileName = $Executable
-$ProcessInfo.Arguments = (@("gui", "--root", $ResolvedRoot, "--address", $Address) | ForEach-Object { Quote-WindowsArgument $_ }) -join " "
+$ProcessInfo.Arguments = ($GuiArguments | ForEach-Object { Quote-WindowsArgument $_ }) -join " "
 $ProcessInfo.UseShellExecute = $false
 $ProcessInfo.CreateNoWindow = $false
 if ($FfmpegPath) {

@@ -256,6 +256,23 @@ type DashboardResult struct {
 	ArtifactIssues     int
 }
 
+// SetupState is the UI-neutral first-run and workspace-selection state.
+type SetupState struct {
+	SetupRequired    bool
+	ExplicitRoot     bool
+	ProposedRoot     string
+	ConfiguredRoot   string
+	ActiveRoot       string
+	PrivateVault     string
+	PortfolioVault   string
+	RootExists       bool
+	RootWritable     bool
+	Initialized      bool
+	CanInitialize    bool
+	Disposition      string
+	ValidationStatus string
+}
+
 func planResult(plan filesystem.Plan) PlanResult {
 	operations := make([]PlannedOperation, len(plan.Operations))
 	for i, operation := range plan.Operations {

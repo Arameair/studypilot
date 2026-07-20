@@ -8,6 +8,11 @@ type WorkspaceRequest struct {
 	Root string
 }
 
+type SetupRequest struct {
+	Root    string
+	Confirm bool
+}
+
 // CourseCreateRequest describes a private course to plan or create. An empty
 // Root selects the default workspace location.
 type CourseCreateRequest struct {

@@ -52,22 +52,42 @@ safe unavailable capability, and disables Start Recording.
 
 ## Quick start
 
-Build and create the default local workspace:
+Build and configure a local workspace:
 
 ```sh
 make build
-./bin/studypilot init
-./bin/studypilot course create --name "Example Course"
+./bin/studypilot setup --root "$HOME/Documents/vaults"
+./bin/studypilot course create --root "$HOME/Documents/vaults" --name "Example Course"
 ./bin/studypilot module create \
+  --root "$HOME/Documents/vaults" \
   --course "Example Course" \
   --number 1 \
   --name "Example Module"
 ./bin/studypilot gui
 ```
 
-Use `--root <workspace-path>` on commands and the GUI to select an isolated
-workspace. `init --dry-run` reports its plan without writing. Repeated
-initialization preserves matching files and refuses conflicting overwrites.
+On the first normal GUI launch, StudyPilot proposes the current user's
+`Documents/vaults` directory. The path is editable and nothing is created until
+the user validates and confirms it. Setup creates
+`Learning-Vault-Private` and `IT-Knowledge-Portfolio` beneath the selected root,
+then stores the absolute root in the operating system's per-user configuration
+directory. On Windows, Go's `os.UserConfigDir` normally resolves this as
+`%APPDATA%\StudyPilot\config.json`; on Linux it is the
+`os.UserConfigDir` result, normally
+`$XDG_CONFIG_HOME/StudyPilot/config.json` or
+`~/.config/StudyPilot/config.json`. No existing data is moved or merged.
+
+Use Workspace settings in the GUI to validate and switch to another root.
+Switching never moves or deletes the previous workspace and is rejected while
+capture is active. A missing or invalid configured root returns the GUI to a
+recoverable setup screen instead of silently selecting another directory.
+
+An explicit GUI `--root <workspace-path>` overrides the persisted selection for
+that process and does not overwrite it. Existing CLI commands retain their
+current `--root` behavior. `init --dry-run` still reports the legacy
+initialization plan without writing, while `setup --root PATH --dry-run`
+validates the persistent setup choice without creating a workspace or
+configuration.
 
 For deterministic development capture, select it explicitly:
 

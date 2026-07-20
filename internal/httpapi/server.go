@@ -50,10 +50,18 @@ type Application interface {
 	UpdateSessionNotes(context.Context, application.UpdateSessionNotesRequest) (application.SessionNotesResult, error)
 }
 
+type SetupApplication interface {
+	GetSetupState(context.Context) (application.SetupState, error)
+	ValidateSetup(context.Context, application.SetupRequest) (application.SetupState, error)
+	InitializeSetup(context.Context, application.SetupRequest) (application.SetupState, error)
+	ActiveWorkspaceRoot() string
+}
+
 type Config struct {
 	Root, CaptureBackend, CaptureDriver, CaptureDevice, TranscriptionBackend, TranscriptionModel string
 	CaptureAvailable                                                                             bool
 	CaptureIssues                                                                                []capture.CapabilityIssue
+	Setup                                                                                        SetupApplication
 }
 
 type api struct {
@@ -107,6 +115,13 @@ func (a *api) dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.frontend.ServeHTTP(w, r)
+}
+
+func (a *api) root() string {
+	if a.config.Setup != nil {
+		return a.config.Setup.ActiveWorkspaceRoot()
+	}
+	return a.config.Root
 }
 
 func (a *api) security(next http.HandlerFunc) http.Handler {

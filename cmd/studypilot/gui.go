@@ -58,8 +58,27 @@ func runGUI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Error: initialize StudyPilot GUI application.")
 		return 1
 	}
+	store, err := newLocalConfigStore()
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: initialize StudyPilot local configuration.")
+		return 1
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: determine current user configuration.")
+		return 1
+	}
+	setup, err := application.NewSetupService(service, application.SetupOptions{
+		ConfigStore: store, UserHome: home, SourceRoot: executableSourceRoot(),
+		ExplicitRoot: root.value, Explicit: root.set,
+	})
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: initialize StudyPilot workspace setup.")
+		return 1
+	}
 	handler, err := httpapi.New(service, httpapi.Config{
 		Root:                 root.value,
+		Setup:                setup,
 		CaptureBackend:       captureConfig.Backend,
 		CaptureDriver:        safeCaptureDriver(captureConfig),
 		CaptureDevice:        safeCaptureDevice(captureConfig),

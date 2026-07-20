@@ -32,15 +32,26 @@ type transcriptionRequest struct {
 	MaxAttempts      int    `json:"max_attempts"`
 	ExpectedRevision uint64 `json:"expected_revision"`
 }
+type setupRequest struct {
+	Root    string `json:"root"`
+	Confirm bool   `json:"confirm,omitempty"`
+}
 
 func (a *api) serveAPI(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/v1/"), "/"), "/")
+	if a.config.Setup != nil && a.root() == "" && !(len(parts) == 1 && parts[0] == "health") && !(len(parts) >= 1 && parts[0] == "setup") {
+		writeError(w, http.StatusConflict, "setup_required", "Workspace setup is required before using the dashboard.", true)
+		return
+	}
 	if len(parts) == 1 {
 		switch parts[0] {
 		case "health":
 			if requireMethod(w, r, http.MethodGet) {
 				writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "api_version": APIVersion})
 			}
+			return
+		case "setup":
+			a.setupState(w, r)
 			return
 		case "dashboard":
 			a.dashboard(w, r)
@@ -49,6 +60,17 @@ func (a *api) serveAPI(w http.ResponseWriter, r *http.Request) {
 			a.courses(w, r)
 			return
 		}
+	}
+	if len(parts) == 2 && parts[0] == "setup" {
+		switch parts[1] {
+		case "validate":
+			a.setupValidate(w, r)
+		case "initialize":
+			a.setupInitialize(w, r)
+		default:
+			writeError(w, http.StatusNotFound, "not_found", "The requested API endpoint does not exist.", false)
+		}
+		return
 	}
 	if len(parts) >= 2 {
 		for _, value := range parts[1:] {
@@ -81,11 +103,69 @@ func (a *api) serveAPI(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "not_found", "The requested API endpoint does not exist.", false)
 }
 
+func (a *api) setupState(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	if a.config.Setup == nil {
+		writeJSON(w, http.StatusOK, setupDTO(application.SetupState{ActiveRoot: a.config.Root, ConfiguredRoot: a.config.Root, Initialized: true, ValidationStatus: "valid"}))
+		return
+	}
+	state, err := a.config.Setup.GetSetupState(r.Context())
+	if err != nil {
+		writeApplicationError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, setupDTO(state))
+}
+
+func (a *api) setupValidate(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	if a.config.Setup == nil {
+		writeError(w, http.StatusNotFound, "not_found", "Workspace setup is not available.", false)
+		return
+	}
+	var request setupRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	state, err := a.config.Setup.ValidateSetup(r.Context(), application.SetupRequest{Root: request.Root})
+	if err != nil {
+		writeApplicationError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, setupDTO(state))
+}
+
+func (a *api) setupInitialize(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	if a.config.Setup == nil {
+		writeError(w, http.StatusNotFound, "not_found", "Workspace setup is not available.", false)
+		return
+	}
+	var request setupRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	state, err := a.config.Setup.InitializeSetup(r.Context(), application.SetupRequest{Root: request.Root, Confirm: request.Confirm})
+	if err != nil {
+		writeApplicationError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, setupDTO(state))
+}
+
 func (a *api) dashboard(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	result, err := a.application.GetDashboard(r.Context(), application.DashboardRequest{Root: a.config.Root})
+	result, err := a.application.GetDashboard(r.Context(), application.DashboardRequest{Root: a.root()})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -96,7 +176,7 @@ func (a *api) courses(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	result, err := a.application.ListCourses(r.Context(), application.ListCoursesRequest{Root: a.config.Root})
+	result, err := a.application.ListCourses(r.Context(), application.ListCoursesRequest{Root: a.root()})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -107,7 +187,7 @@ func (a *api) modules(w http.ResponseWriter, r *http.Request, course string) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	result, err := a.application.ListModules(r.Context(), application.ListModulesRequest{Root: a.config.Root, CourseRef: course})
+	result, err := a.application.ListModules(r.Context(), application.ListModulesRequest{Root: a.root(), CourseRef: course})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -117,7 +197,7 @@ func (a *api) modules(w http.ResponseWriter, r *http.Request, course string) {
 func (a *api) moduleSessions(w http.ResponseWriter, r *http.Request, course, module string) {
 	switch r.Method {
 	case http.MethodGet:
-		result, err := a.application.InspectModuleSessions(r.Context(), application.InspectModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module})
+		result, err := a.application.InspectModuleSessions(r.Context(), application.InspectModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module})
 		if err != nil {
 			writeApplicationError(w, err)
 			return
@@ -133,7 +213,7 @@ func (a *api) moduleSessions(w http.ResponseWriter, r *http.Request, course, mod
 		if !decodeJSON(w, r, &request) {
 			return
 		}
-		result, err := a.application.CreateSession(r.Context(), application.CreateSessionRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, Title: request.Title})
+		result, err := a.application.CreateSession(r.Context(), application.CreateSessionRequest{Root: a.root(), CourseRef: course, ModuleRef: module, Title: request.Title})
 		if err != nil {
 			writeApplicationError(w, err)
 			return
@@ -149,7 +229,7 @@ func (a *api) moduleWorkspace(w http.ResponseWriter, r *http.Request, course, mo
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	result, err := a.application.GetModuleWorkspace(r.Context(), application.ModuleWorkspaceRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module})
+	result, err := a.application.GetModuleWorkspace(r.Context(), application.ModuleWorkspaceRequest{Root: a.root(), CourseRef: course, ModuleRef: module})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -163,13 +243,13 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 		if !requireMethod(w, r, http.MethodGet) {
 			return
 		}
-		result, err := a.application.GetSessionWorkspace(r.Context(), application.SessionWorkspaceRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session})
+		result, err := a.application.GetSessionWorkspace(r.Context(), application.SessionWorkspaceRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session})
 		if err != nil {
 			writeApplicationError(w, err)
 			return
 		}
 		if a.config.CaptureBackend != "" {
-			inspection, inspectErr := a.application.InspectCapture(r.Context(), application.InspectCaptureRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, Backend: a.config.CaptureBackend})
+			inspection, inspectErr := a.application.InspectCapture(r.Context(), application.InspectCaptureRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session, Backend: a.config.CaptureBackend})
 			if inspectErr != nil {
 				writeApplicationError(w, inspectErr)
 				return
@@ -236,7 +316,7 @@ func (a *api) sessionRoutes(w http.ResponseWriter, r *http.Request, parts []stri
 			writeError(w, http.StatusBadRequest, "invalid_input", "A positive expected_revision is required.", false)
 			return
 		}
-		base := application.UpdateSessionRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, ExpectedRevision: request.ExpectedRevision}
+		base := application.UpdateSessionRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session, ExpectedRevision: request.ExpectedRevision}
 		var result application.SessionResult
 		var err error
 		if parts[4] == "start" {
@@ -271,7 +351,7 @@ func (a *api) captureRoutes(w http.ResponseWriter, r *http.Request, course, modu
 		if !requireMethod(w, r, http.MethodGet) {
 			return
 		}
-		result, err := a.application.InspectCapture(r.Context(), application.InspectCaptureRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, Backend: a.config.CaptureBackend})
+		result, err := a.application.InspectCapture(r.Context(), application.InspectCaptureRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session, Backend: a.config.CaptureBackend})
 		if err != nil {
 			writeApplicationError(w, err)
 			return
@@ -298,7 +378,7 @@ func (a *api) captureRoutes(w http.ResponseWriter, r *http.Request, course, modu
 		writeError(w, http.StatusBadRequest, "invalid_input", "A positive expected_revision is required.", false)
 		return
 	}
-	base := application.CaptureRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, ExpectedRevision: request.ExpectedRevision}
+	base := application.CaptureRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session, ExpectedRevision: request.ExpectedRevision}
 	var result application.CaptureResult
 	var err error
 	switch parts[5] {
@@ -323,7 +403,7 @@ func (a *api) transcriptionRoutes(w http.ResponseWriter, r *http.Request, course
 		if !requireMethod(w, r, http.MethodGet) {
 			return
 		}
-		result, err := a.application.InspectTranscription(r.Context(), application.InspectTranscriptionRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session})
+		result, err := a.application.InspectTranscription(r.Context(), application.InspectTranscriptionRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session})
 		if err != nil {
 			writeApplicationError(w, err)
 			return
@@ -346,7 +426,7 @@ func (a *api) transcriptionRoutes(w http.ResponseWriter, r *http.Request, course
 		writeError(w, http.StatusBadRequest, "invalid_input", "The transcription request is invalid.", false)
 		return
 	}
-	result, err := a.application.ExecuteTranscription(r.Context(), application.ExecuteTranscriptionRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module, SessionRef: session, SegmentID: request.SegmentID, Backend: request.Backend, Model: request.Model, Language: request.Language, MaxAttempts: request.MaxAttempts, ExpectedRevision: request.ExpectedRevision})
+	result, err := a.application.ExecuteTranscription(r.Context(), application.ExecuteTranscriptionRequest{Root: a.root(), CourseRef: course, ModuleRef: module, SessionRef: session, SegmentID: request.SegmentID, Backend: request.Backend, Model: request.Model, Language: request.Language, MaxAttempts: request.MaxAttempts, ExpectedRevision: request.ExpectedRevision})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -361,7 +441,7 @@ func (a *api) moduleRoutes(w http.ResponseWriter, r *http.Request, parts []strin
 			if !requireMethod(w, r, http.MethodGet) {
 				return
 			}
-			result, err := a.application.ListStudyArtifacts(r.Context(), application.ListStudyArtifactsRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}})
+			result, err := a.application.ListStudyArtifacts(r.Context(), application.ListStudyArtifactsRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module}})
 			if err != nil {
 				writeApplicationError(w, err)
 				return
@@ -373,7 +453,7 @@ func (a *api) moduleRoutes(w http.ResponseWriter, r *http.Request, parts []strin
 			if !requireMethod(w, r, http.MethodGet) {
 				return
 			}
-			result, err := a.application.InspectStudyArtifacts(r.Context(), application.InspectStudyArtifactsRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}})
+			result, err := a.application.InspectStudyArtifacts(r.Context(), application.InspectStudyArtifactsRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module}})
 			if err != nil {
 				writeApplicationError(w, err)
 				return
@@ -389,7 +469,7 @@ func (a *api) moduleRoutes(w http.ResponseWriter, r *http.Request, parts []strin
 			if !decodeJSON(w, r, &request) {
 				return
 			}
-			result, err := a.application.RefreshStudyArtifactIndex(r.Context(), application.RefreshStudyArtifactIndexRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}, ExpectedArtifactRevision: request.ExpectedRevision})
+			result, err := a.application.RefreshStudyArtifactIndex(r.Context(), application.RefreshStudyArtifactIndexRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module}, ExpectedArtifactRevision: request.ExpectedRevision})
 			if err != nil {
 				writeApplicationError(w, err)
 				return
@@ -413,7 +493,7 @@ func (a *api) createModuleNotes(w http.ResponseWriter, r *http.Request, course, 
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	result, err := a.application.CreateModuleNotes(r.Context(), application.CreateModuleNotesRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}, Title: request.Title, ExpectedArtifactRevision: request.ExpectedRevision})
+	result, err := a.application.CreateModuleNotes(r.Context(), application.CreateModuleNotesRequest{StudyArtifactModuleRequest: application.StudyArtifactModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module}, Title: request.Title, ExpectedArtifactRevision: request.ExpectedRevision})
 	if err != nil {
 		writeApplicationError(w, err)
 		return
@@ -421,7 +501,7 @@ func (a *api) createModuleNotes(w http.ResponseWriter, r *http.Request, course, 
 	writeJSON(w, http.StatusCreated, artifactMutationDTO(result))
 }
 func (a *api) sessionNotes(w http.ResponseWriter, r *http.Request, course, module, session string) {
-	base := application.StudyArtifactModuleRequest{Root: a.config.Root, CourseRef: course, ModuleRef: module}
+	base := application.StudyArtifactModuleRequest{Root: a.root(), CourseRef: course, ModuleRef: module}
 	switch r.Method {
 	case http.MethodPost:
 		var request noteRequest

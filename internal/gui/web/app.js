@@ -1,4 +1,4 @@
-const state = { course: null, module: null, session: null, courses: [], modules: [], moduleWorkspace: null, workspace: null, busy: new Set(), transcriptionController: null, routeHash: '', note: null };
+const state = { course: null, module: null, session: null, courses: [], modules: [], moduleWorkspace: null, workspace: null, setup: null, switchingWorkspace: false, busy: new Set(), transcriptionController: null, routeHash: '', note: null };
 const $ = selector => document.querySelector(selector);
 
 class APIError extends Error {
@@ -23,12 +23,13 @@ function showError(error, suggestion = '') {
 }
 function friendlyCode(code) { return String(code).replaceAll('_', ' ').replace(/^./, value => value.toUpperCase()); }
 function setLoading(id, loading) { const node = $(id); if (node) node.hidden = !loading; }
-function showView(id) { for (const view of ['courses-view','module-view','session-view']) $(`#${view}`).hidden = view !== id; }
+function showView(id) { for (const view of ['setup-view','courses-view','module-view','session-view']) $(`#${view}`).hidden = view !== id; }
 function encode(value) { return encodeURIComponent(value); }
 function empty(text) { const p = document.createElement('p'); p.textContent = text; return p; }
 function textElement(tag, text, className = '') { const node = document.createElement(tag); node.textContent = text; if (className) node.className = className; return node; }
 
 async function route() {
+  if (!state.setup || state.setup.setup_required || state.switchingWorkspace) return showSetup(state.switchingWorkspace);
   const requestedHash = location.hash || '#/';
   if (state.routeHash && requestedHash !== state.routeHash && noteDirty()) {
     if (!window.confirm('You have unsaved session notes. Leave this session and discard the draft?')) {
@@ -44,6 +45,104 @@ async function route() {
   if (parts[0] === 'course' && parts[2] === 'module' && parts[3]) return loadModule(parts[1], parts[3]);
   if (parts[0] === 'course' && parts[1]) return chooseCourse(parts[1]);
   return loadCourses();
+}
+
+async function bootstrap() {
+  clearError();
+  announce('Inspecting local workspace configuration…');
+  try {
+    state.setup = await api('/setup');
+    renderWorkspaceSettings();
+    if (state.setup.setup_required) {
+      showSetup(false);
+      announce('Choose and validate a local workspace.');
+      return;
+    }
+    $('#workspace-settings-nav').hidden = false;
+    await route();
+  } catch (error) {
+    showError(error);
+    announce('Workspace configuration could not be inspected.');
+  }
+}
+
+function showSetup(switching) {
+  state.switchingWorkspace = Boolean(switching);
+  showView('setup-view');
+  $('#module-nav').hidden = true;
+  $('#workspace-settings-nav').hidden = !state.setup?.active_root;
+  $('#cancel-workspace-switch').hidden = !state.switchingWorkspace;
+  $('#setup-title').textContent = state.switchingWorkspace ? 'Switch StudyPilot workspace' : 'Set up StudyPilot';
+  const candidate = state.switchingWorkspace ? state.setup?.active_root : (state.setup?.configured_root || state.setup?.proposed_root || '');
+  $('#workspace-root').value = candidate;
+  $('#proposed-root').textContent = state.setup?.proposed_root || '';
+  renderSetupDetails(state.setup);
+}
+
+function renderSetupDetails(value) {
+  $('#setup-private-vault').textContent = value?.private_vault || 'Validate a root to preview';
+  $('#setup-portfolio-vault').textContent = value?.portfolio_vault || 'Validate a root to preview';
+  $('#setup-validation-status').textContent = value ? `${friendlyCode(value.validation_status)} · ${friendlyCode(value.disposition || 'unknown')}` : 'Not validated';
+  $('#create-workspace').disabled = !value?.can_initialize || value.validation_status === 'invalid' || state.busy.has('setup');
+}
+
+function renderWorkspaceSettings() {
+  const value = state.setup;
+  const active = value?.active_root || '';
+  $('#active-workspace').textContent = active ? `Workspace ${active}` : 'Workspace setup required';
+  $('#settings-root').textContent = active || 'Not configured';
+  $('#settings-private').textContent = value?.private_vault || '—';
+  $('#settings-portfolio').textContent = value?.portfolio_vault || '—';
+  $('#settings-validation').textContent = value?.validation_status ? friendlyCode(value.validation_status) : 'Unknown';
+  $('#switch-workspace').disabled = Boolean(value?.explicit_root);
+  $('#switch-workspace').title = value?.explicit_root ? 'Restart without --root to change the persistent workspace.' : '';
+}
+
+async function validateWorkspace() {
+  if (state.busy.has('setup')) return;
+  state.busy.add('setup'); clearError(); renderSetupDetails(state.setup); announce('Validating workspace without writing…');
+  try {
+    const value = await api('/setup/validate', {method:'POST', body:JSON.stringify({root:$('#workspace-root').value})});
+    state.setup = {...value, active_root:state.setup?.active_root || value.active_root};
+    renderSetupDetails(value);
+    announce(value.can_initialize ? 'Workspace is ready for explicit initialization.' : 'Workspace cannot be initialized safely.');
+  } catch (error) {
+    state.setup = {...(state.setup || {}), can_initialize:false, validation_status:'invalid', disposition:'unsafe'};
+    showError(error, 'No workspace or configuration was changed.');
+    $('#setup-validation-status').textContent = 'Validation failed';
+    announce('Workspace validation failed without writing.');
+  } finally {
+    state.busy.delete('setup');
+    renderSetupDetails(state.setup);
+  }
+}
+
+async function initializeWorkspace(event) {
+  event.preventDefault();
+  if (state.busy.has('setup')) return;
+  const switching = Boolean(state.setup?.active_root && $('#workspace-root').value !== state.setup.active_root);
+  const explicit = Boolean(state.setup?.explicit_root);
+  const confirmed = await confirmAction(
+    switching ? 'Switch workspaces?' : 'Create this workspace?',
+    explicit ? 'Initialize or adopt this explicit root for the current process? The persistent default will not be changed.' : switching ? 'Initialize or adopt this root and make it the persistent default? Existing workspace data will remain untouched.' : 'Create or adopt the two local vaults and save this root as the persistent default?'
+  );
+  if (!confirmed) return;
+  state.busy.add('setup'); clearError(); renderSetupDetails(state.setup); announce('Initializing workspace…');
+  try {
+    state.setup = await api('/setup/initialize', {method:'POST', body:JSON.stringify({root:$('#workspace-root').value, confirm:true})});
+    state.switchingWorkspace = false;
+    renderWorkspaceSettings();
+    $('#workspace-settings-nav').hidden = false;
+    location.hash = '#/';
+    announce('Workspace setup completed.');
+    await route();
+  } catch (error) {
+    showError(error, 'The previous valid workspace configuration remains selected.');
+    announce('Workspace setup did not complete.');
+  } finally {
+    state.busy.delete('setup');
+    renderSetupDetails(state.setup);
+  }
 }
 
 async function loadCourses() {
@@ -322,6 +421,17 @@ document.addEventListener('click', event => {
   if (action === 'inspect-artifacts') inspectArtifacts();
 });
 $('#create-session-form').addEventListener('submit', createSession); $('#create-module-notes').addEventListener('click', createModuleNotes);
+$('#setup-form').addEventListener('submit', initializeWorkspace);
+$('#validate-workspace').addEventListener('click', validateWorkspace);
+$('#workspace-root').addEventListener('input', () => {
+  $('#setup-private-vault').textContent = 'Validate this root to preview';
+  $('#setup-portfolio-vault').textContent = 'Validate this root to preview';
+  $('#setup-validation-status').textContent = 'Not validated';
+  $('#create-workspace').disabled = true;
+});
+$('#switch-workspace').addEventListener('click', () => showSetup(true));
+$('#workspace-settings-nav').addEventListener('click', () => showSetup(true));
+$('#cancel-workspace-switch').addEventListener('click', () => { state.switchingWorkspace = false; location.hash = '#/'; route(); });
 $('#cancel-transcription').addEventListener('click', () => state.transcriptionController?.abort());
 $('#session-notes-content').addEventListener('input', event => {
   if (!state.note?.loaded || state.note.pending) return;
@@ -330,7 +440,7 @@ $('#session-notes-content').addEventListener('input', event => {
 });
 $('#load-session-notes').addEventListener('click', () => loadSessionNotes(true));
 $('#save-session-notes').addEventListener('click', saveSessionNotes);
-$('#courses-nav').addEventListener('click', () => { location.hash = '#/'; }); $('#back-to-courses').addEventListener('click', () => { location.hash = '#/'; }); $('#module-back').addEventListener('click', () => { location.hash = '#/'; });
+$('#courses-nav').addEventListener('click', () => { state.switchingWorkspace = false; location.hash = '#/'; route(); }); $('#back-to-courses').addEventListener('click', () => { location.hash = '#/'; }); $('#module-back').addEventListener('click', () => { location.hash = '#/'; });
 $('#module-nav').addEventListener('click', () => { location.hash = `#/course/${encode(state.course)}/module/${encode(state.module)}`; }); $('#session-back').addEventListener('click', () => { location.hash = `#/course/${encode(state.course)}/module/${encode(state.module)}`; });
 window.addEventListener('beforeunload', warnUnsavedNotes);
-window.addEventListener('hashchange', () => route()); route();
+window.addEventListener('hashchange', () => route()); bootstrap();

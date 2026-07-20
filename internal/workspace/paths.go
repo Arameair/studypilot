@@ -31,6 +31,17 @@ func DefaultPaths() (Paths, error) {
 	return PathsFromRoot(filepath.Join(home, "Documents", "StudyPilot"))
 }
 
+// ProposedPaths returns the editable first-run proposal beneath the current
+// user's Documents directory. It performs no filesystem writes and is not an
+// implicit selection.
+func ProposedPaths() (Paths, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Paths{}, fmt.Errorf("determine user home directory: %w", err)
+	}
+	return PathsFromRoot(filepath.Join(home, "Documents", "vaults"))
+}
+
 // PathsFromRoot resolves root and constructs the private and portfolio paths
 // beneath it. It performs no filesystem writes.
 func PathsFromRoot(root string) (Paths, error) {

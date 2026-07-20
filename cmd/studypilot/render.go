@@ -58,6 +58,19 @@ func renderExecution(result application.ExecutionResult, err error, label, root 
 	return 0
 }
 
+func renderSetupState(state application.SetupState, err error, dryRun bool, stdout, stderr io.Writer) int {
+	if err != nil {
+		return reportError(err, stderr)
+	}
+	fmt.Fprintf(stdout, "Workspace root: %s\nPrivate vault: %s\nPortfolio vault: %s\n", state.ProposedRoot, state.PrivateVault, state.PortfolioVault)
+	if dryRun {
+		fmt.Fprintf(stdout, "Validation: %s (%s)\nNo files or configuration were written.\n", state.ValidationStatus, state.Disposition)
+	} else {
+		fmt.Fprintln(stdout, "Workspace initialized and saved as the persistent default.")
+	}
+	return 0
+}
+
 // reportError renders a classified application error and returns its exit code:
 // invalid input is a usage error (2, with usage text); everything else is a
 // runtime/domain failure (1). This is the single place the CLI maps error kinds.

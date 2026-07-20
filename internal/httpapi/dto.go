@@ -6,6 +6,18 @@ import (
 	"github.com/Arameair/studypilot/internal/studyartifact"
 )
 
+func setupDTO(v application.SetupState) map[string]any {
+	return map[string]any{
+		"setup_required": v.SetupRequired, "explicit_root": v.ExplicitRoot,
+		"proposed_root": v.ProposedRoot, "configured_root": v.ConfiguredRoot,
+		"active_root": v.ActiveRoot, "private_vault": v.PrivateVault,
+		"portfolio_vault": v.PortfolioVault, "root_exists": v.RootExists,
+		"root_writable": v.RootWritable, "initialized": v.Initialized,
+		"can_initialize": v.CanInitialize, "disposition": v.Disposition,
+		"validation_status": v.ValidationStatus,
+	}
+}
+
 type sessionSummaryDTO struct {
 	ID            string                     `json:"id"`
 	CourseID      string                     `json:"course_id"`

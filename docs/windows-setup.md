@@ -29,9 +29,31 @@ It checks formatting, Go tests/vet/package listing/build, Python standard
 library worker tests when Python exists, PowerShell syntax, and the isolated
 synthetic GUI workflow.
 
-## Start an isolated synthetic GUI
+## First-run workspace setup
 
-Create a disposable workspace, then start the already-built executable:
+Start the already-built GUI without a root to open the first-run setup screen:
+
+```powershell
+pwsh.exe -NoProfile -File .\scripts\start-gui-windows.ps1 -OpenBrowser
+```
+
+StudyPilot proposes the current user's `Documents\vaults` directory. The path
+is editable; it is not created until Validate succeeds and Create workspace is
+explicitly confirmed. The selected root contains the separate
+`Learning-Vault-Private` and `IT-Knowledge-Portfolio` directories.
+
+The persistent root is stored at the current user's `os.UserConfigDir` result,
+normally `%APPDATA%\StudyPilot\config.json`. An explicit `-Root` passed to the
+launcher, or `--root` passed directly to `studypilot gui`, overrides that file
+for the current process without rewriting it. An invalid or missing configured
+path reopens setup/repair mode rather than falling back silently.
+
+Workspace settings can initialize or adopt another valid root and make it the
+new default. This is a switch, not a move: StudyPilot never deletes, merges, or
+moves the previous vaults. Switching is blocked while recording is active.
+
+For a disposable synthetic development workspace, use an explicit temporary
+root:
 
 ```powershell
 $root = Join-Path $env:TEMP "StudyPilot Synthetic Workspace"

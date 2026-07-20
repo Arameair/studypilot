@@ -10,6 +10,7 @@ import (
 	"github.com/Arameair/studypilot/internal/session"
 	"github.com/Arameair/studypilot/internal/studyartifact"
 	"github.com/Arameair/studypilot/internal/transcription"
+	"github.com/Arameair/studypilot/internal/workspace"
 )
 
 // ErrorKind is a stable, UI-neutral classification of an application failure.
@@ -84,6 +85,9 @@ func Classify(err error) ErrorKind {
 	if errors.Is(err, studyartifact.ErrPersistenceUncertain) {
 		return ErrorUncertain
 	}
+	if errors.Is(err, ErrSetupPersistenceUncertain) {
+		return ErrorUncertain
+	}
 	if errors.Is(err, studyartifact.ErrRevisionConflict) || errors.Is(err, studyartifact.ErrConflict) {
 		return ErrorConflict
 	}
@@ -98,7 +102,8 @@ func Classify(err error) ErrorKind {
 		return ErrorCancelled
 	case errors.Is(err, course.ErrInvalidName), errors.Is(err, course.ErrInvalidModuleNumber),
 		errors.Is(err, filesystem.ErrInvalidMutation), errors.Is(err, session.ErrInvalidMetadata),
-		errors.Is(err, ErrInvalidSessionRequest):
+		errors.Is(err, ErrInvalidSessionRequest), errors.Is(err, workspace.ErrInvalidSetupRoot),
+		errors.Is(err, ErrSetupConfirmationRequired):
 		return ErrorInvalidInput
 	case errors.Is(err, course.ErrCollision):
 		return ErrorCollision
@@ -115,7 +120,10 @@ func Classify(err error) ErrorKind {
 		errors.Is(err, session.ErrMalformedState), errors.Is(err, session.ErrIdentityMismatch),
 		errors.Is(err, session.ErrInvalidTransition):
 		return ErrorConflict
-	case errors.Is(err, filesystem.ErrUnsafePath), errors.Is(err, filesystem.ErrUnauthorized):
+	case errors.Is(err, ErrSetupConflict), errors.Is(err, ErrSetupCaptureActive):
+		return ErrorConflict
+	case errors.Is(err, filesystem.ErrUnsafePath), errors.Is(err, filesystem.ErrUnauthorized),
+		errors.Is(err, workspace.ErrUnsafeSetupRoot):
 		return ErrorUnsafe
 	default:
 		return ErrorInternal

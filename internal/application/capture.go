@@ -77,6 +77,7 @@ func (s *Service) StartCapture(ctx context.Context, req StartCaptureRequest) (Ca
 	if err != nil {
 		return CaptureResult{}, newError("StartCapture", "start capture backend", err)
 	}
+	s.setCaptureActive(record.Metadata.ID, true)
 	next, mapErr := capture.ApplyStart(record.Runtime.Snapshot, result)
 	if mapErr != nil {
 		return CaptureResult{}, uncertain("StartCapture", mapErr)
@@ -164,6 +165,7 @@ func (s *Service) captureMutation(ctx context.Context, req CaptureRequest, appOp
 	case capture.OpStop:
 		status := record.Runtime.Snapshot.CaptureStatus
 		if status == studyruntime.CaptureStatusStopped {
+			s.setCaptureActive(record.Metadata.ID, false)
 			return CaptureResult{Operation: "capture_stop", SessionID: record.Metadata.ID, CaptureID: string(captureID), CaptureStatus: status, Revision: record.Runtime.Revision}, nil
 		}
 		if status != studyruntime.CaptureStatusRecording && status != studyruntime.CaptureStatusPaused {
@@ -181,6 +183,7 @@ func (s *Service) captureMutation(ctx context.Context, req CaptureRequest, appOp
 		if backendErr != nil {
 			return CaptureResult{}, newError(appOp, "stop capture backend", backendErr)
 		}
+		s.setCaptureActive(record.Metadata.ID, false)
 		mapped, err = capture.ApplyStop(record.Runtime.Snapshot, backendResult)
 		if backendResult.Segment != nil {
 			value := captureSegment(*backendResult.Segment, false)
@@ -195,6 +198,25 @@ func (s *Service) captureMutation(ctx context.Context, req CaptureRequest, appOp
 		return CaptureResult{}, uncertain(appOp, err)
 	}
 	return CaptureResult{Operation: "capture_" + strings.ToLower(strings.TrimPrefix(captureOp, "Capture")), SessionID: record.Metadata.ID, CaptureID: string(captureID), CaptureStatus: installed.Runtime.Snapshot.CaptureStatus, Segment: segment, Revision: installed.Runtime.Revision, DurabilityWarning: installed.DurabilityWarning}, nil
+}
+
+func (s *Service) setCaptureActive(sessionID string, active bool) {
+	s.sessionMu.Lock()
+	defer s.sessionMu.Unlock()
+	s.captureActiveBySession[sessionID] = active
+}
+
+// HasActiveCapture reports whether this process currently owns a recording or
+// paused capture. It is used to prevent workspace switching across live state.
+func (s *Service) HasActiveCapture() bool {
+	s.sessionMu.Lock()
+	defer s.sessionMu.Unlock()
+	for _, active := range s.captureActiveBySession {
+		if active {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) InspectCapture(ctx context.Context, req InspectCaptureRequest) (CaptureInspectionResult, error) {

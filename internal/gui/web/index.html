@@ -10,17 +10,50 @@
 <body>
   <header>
     <div><h1>StudyPilot</h1><p>Private local study-session controls</p></div>
-    <span id="revision" aria-label="Current runtime revision">Revision —</span>
+    <div class="header-status"><span id="active-workspace">Workspace —</span><span id="revision" aria-label="Current runtime revision">Revision —</span></div>
   </header>
   <nav aria-label="Primary navigation">
     <button id="courses-nav" type="button">Courses</button>
     <button id="module-nav" type="button" hidden>Current module</button>
+    <button id="workspace-settings-nav" type="button" hidden>Workspace settings</button>
   </nav>
   <main>
     <div id="status" role="status" aria-live="polite">Loading StudyPilot…</div>
     <div id="error" role="alert" aria-live="assertive" hidden></div>
 
-    <section id="courses-view" aria-labelledby="courses-title">
+    <section id="setup-view" class="setup-panel" hidden aria-labelledby="setup-title">
+      <p class="eyebrow">Local workspace</p>
+      <h2 id="setup-title">Set up StudyPilot</h2>
+      <p>StudyPilot stores learning data locally in two separate vault directories. Nothing is created until you validate a path and explicitly confirm.</p>
+      <form id="setup-form">
+        <label for="workspace-root">Workspace root</label>
+        <input id="workspace-root" name="root" required autocomplete="off" spellcheck="false">
+        <p>Proposed default: <code id="proposed-root"></code></p>
+        <dl class="summary-grid">
+          <div><dt>Private vault</dt><dd id="setup-private-vault">Validate a root to preview</dd></div>
+          <div><dt>Portfolio vault</dt><dd id="setup-portfolio-vault">Validate a root to preview</dd></div>
+          <div><dt>Status</dt><dd id="setup-validation-status">Not validated</dd></div>
+        </dl>
+        <div class="controls">
+          <button id="validate-workspace" type="button">Validate</button>
+          <button id="create-workspace" type="submit" disabled>Create workspace</button>
+          <button id="cancel-workspace-switch" type="button" hidden>Cancel switch</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="courses-view" hidden aria-labelledby="courses-title">
+      <section id="workspace-settings" class="settings-panel" aria-labelledby="workspace-settings-title">
+        <h2 id="workspace-settings-title">Workspace settings</h2>
+        <dl class="summary-grid">
+          <div><dt>Current root</dt><dd id="settings-root">—</dd></div>
+          <div><dt>Private vault</dt><dd id="settings-private">—</dd></div>
+          <div><dt>Portfolio vault</dt><dd id="settings-portfolio">—</dd></div>
+          <div><dt>Validation</dt><dd id="settings-validation">—</dd></div>
+        </dl>
+        <button id="switch-workspace" type="button">Switch workspace</button>
+        <p><small>Switching initializes or validates another root. It never moves, deletes, or merges existing data.</small></p>
+      </section>
       <h2 id="courses-title">Choose a course</h2>
       <p>Select a course, then open one of its modules.</p>
       <div id="courses-loading" class="loading" hidden>Loading courses…</div>

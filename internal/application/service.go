@@ -51,6 +51,7 @@ type Service struct {
 	captureServices            CaptureServiceFactory
 	captureByRoot              map[string]capture.Service
 	captureRoots               map[string]string
+	captureActiveBySession     map[string]bool
 	transcriptionQueues        TranscriptionQueueFactory
 	transcriptionServices      TranscriptionServiceFactory
 	transcriptionCacheMu       sync.Mutex
@@ -102,7 +103,7 @@ func NewService(deps Dependencies) (*Service, error) {
 			return studyartifact.NewStore(ctx, clock, generate)
 		}
 	}
-	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}, transcriptionExecution: deps.TranscriptionExecution, transcriptionBackends: backendFactory, transcriptionStores: storeFactory, studyArtifactStores: artifactFactory}, nil
+	return &Service{now: deps.Now, generateID: deps.GenerateID, sessionRepositories: factory, sessionByRoot: make(map[string]SessionRepository), captureServices: captureFactory, captureByRoot: make(map[string]capture.Service), captureRoots: make(map[string]string), captureActiveBySession: make(map[string]bool), transcriptionQueues: queueFactory, transcriptionServices: transcriptionFactory, transcriptionQueueByRoot: map[string]transcription.Queue{}, transcriptionServiceByRoot: map[string]transcription.Service{}, transcriptionExecution: deps.TranscriptionExecution, transcriptionBackends: backendFactory, transcriptionStores: storeFactory, studyArtifactStores: artifactFactory}, nil
 }
 
 // NewDefaultService constructs a Service with production defaults: the wall

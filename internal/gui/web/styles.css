@@ -25,5 +25,9 @@ textarea { display: block; width: 100%; margin: .5rem 0; resize: vertical; font-
 #status { min-height: 1.6rem; } #error { background: color-mix(in srgb, var(--danger) 18%, transparent); border-left: .3rem solid var(--danger); padding: .75rem; }
 .warning-panel { border-color: #c58b18; }.issue-error { border-left: .25rem solid var(--danger); }.issue-warning { border-left: .25rem solid #c58b18; }.issue-information { border-left: .25rem solid var(--accent); }
 .eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; opacity: .75; }
+.header-status { display: grid; gap: .35rem; text-align: right; }
+.setup-panel, .settings-panel { max-width: 64rem; padding: 1rem; margin-bottom: 1.25rem; border: 1px solid var(--line); border-radius: .6rem; }
+.setup-panel input { width: 100%; margin: .4rem 0 .75rem; }
+.setup-panel code, .settings-panel dd, #active-workspace { overflow-wrap: anywhere; }
 dialog { max-width: 34rem; border: 1px solid var(--line); border-radius: .5rem; } dialog::backdrop { background: #0008; }
 @media (max-width: 48rem) { body { padding: .7rem; }.controls > button { flex: 1 1 10rem; }.summary-grid { grid-template-columns: 1fr 1fr; } }

@@ -12,11 +12,13 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Arameair/studypilot/internal/application"
+	localconfig "github.com/Arameair/studypilot/internal/config"
 	"github.com/Arameair/studypilot/internal/course"
 )
 
@@ -32,6 +34,7 @@ const usage = `StudyPilot
 Usage:
   studypilot version
   studypilot init [--dry-run] [--root PATH]
+  studypilot setup --root PATH [--dry-run]
   studypilot course create --name NAME [--dry-run] [--root PATH]
   studypilot module create --course NAME --number NUMBER --name NAME [--dry-run] [--root PATH]
   studypilot session <subcommand> ...   (run 'studypilot session help' for details)
@@ -74,6 +77,8 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 0
 	case "init":
 		return runInit(args[1:], stdout, stderr)
+	case "setup":
+		return runSetup(args[1:], stdout, stderr)
 	case "course":
 		return runCourse(args[1:], stdout, stderr)
 	case "module":
@@ -91,6 +96,62 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	default:
 		return usageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 	}
+}
+
+var newLocalConfigStore = localconfig.DefaultStore
+
+func runSetup(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("setup", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {}
+	var root rootFlag
+	var dryRun boolFlag
+	flags.Var(&root, "root", "workspace root path")
+	flags.Var(&dryRun, "dry-run", "validate without initializing or saving")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
+		return usageError(stderr, "setup requires --root PATH and accepts only --dry-run")
+	}
+	if !root.set || strings.TrimSpace(root.value) == "" {
+		return usageError(stderr, "setup requires --root PATH")
+	}
+	service, code := newService(stderr)
+	if service == nil {
+		return code
+	}
+	store, err := newLocalConfigStore()
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: initialize local configuration.")
+		return 1
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: determine current user configuration.")
+		return 1
+	}
+	setup, err := application.NewSetupService(service, application.SetupOptions{ConfigStore: store, UserHome: home, SourceRoot: executableSourceRoot()})
+	if err != nil {
+		fmt.Fprintln(stderr, "Error: initialize workspace setup.")
+		return 1
+	}
+	ctx := context.Background()
+	if dryRun.value {
+		state, validateErr := setup.ValidateSetup(ctx, application.SetupRequest{Root: root.value})
+		return renderSetupState(state, validateErr, true, stdout, stderr)
+	}
+	state, setupErr := setup.InitializeSetup(ctx, application.SetupRequest{Root: root.value, Confirm: true})
+	return renderSetupState(state, setupErr, false, stdout, stderr)
+}
+
+func executableSourceRoot() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	directory := filepath.Dir(executable)
+	if strings.EqualFold(filepath.Base(directory), "bin") {
+		return filepath.Dir(directory)
+	}
+	return directory
 }
 
 func newCaptureService(stderr io.Writer) (*application.Service, int) {
